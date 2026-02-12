@@ -1,1 +1,5 @@
-
+        <div class="sendung"><strong>08:00 – 09:00</strong> Guten Morgen Hahn</div>
+        <div class="sendung"><strong>09:00 – 12:00</strong> Reporter live im Staat</div>
+        <div class="sendung"><strong>12:00 – 12:30</strong> Hahn News – Mittag</div>
+        <div class="sendung"><strong>15:00 – 16:00</strong> Hahn Quiz</div>
+        <div class="sendung"><strong>17:00 – 17:30</strong> Hahn News – Abend</div>
