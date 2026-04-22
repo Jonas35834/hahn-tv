@@ -13,8 +13,6 @@ body {
     text-align: center;
 }
 
-#app { display:none; }
-
 input, button {
     padding: 10px;
     margin: 5px;
@@ -28,8 +26,15 @@ button {
     cursor: pointer;
 }
 
+#app { display: none; }
+
 #player {
     margin-top: 20px;
+}
+
+#status {
+    margin-top: 10px;
+    color: #22c55e;
 }
 </style>
 </head>
@@ -50,7 +55,6 @@ button {
 
 <!-- APP -->
 <div id="app">
-
     <h2>Live Stream</h2>
 
     <div id="player">
@@ -58,6 +62,8 @@ button {
         src="https://www.youtube.com/embed/cs5-xmsx_Y8"
         frameborder="0" allowfullscreen></iframe>
     </div>
+
+    <div id="status">✔ Eingeloggt</div>
 
     <br>
     <button onclick="logout()">Logout</button>
@@ -67,14 +73,22 @@ button {
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { 
-    getAuth, 
+    getAuth,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signOut,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-// 🔥 DEINE FIREBASE CONFIG HIER EINSETZEN
+import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* 🔥 FIREBASE CONFIG EINSETZEN */
  const firebaseConfig = {
 
     apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
@@ -89,13 +103,27 @@ import {
 
     appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
 
+  };
 
-};
+
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
-// REGISTER
+/* DEVICE ID */
+function getDeviceId() {
+    let id = localStorage.getItem("deviceId");
+
+    if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem("deviceId", id);
+    }
+
+    return id;
+}
+
+/* REGISTER */
 window.register = function() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
@@ -103,27 +131,61 @@ window.register = function() {
     createUserWithEmailAndPassword(auth, email, password)
     .then(() => alert("Registriert!"))
     .catch(err => alert(err.message));
-}
+};
 
-// LOGIN
+/* LOGIN */
 window.login = function() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
 
     signInWithEmailAndPassword(auth, email, password)
     .catch(err => alert(err.message));
-}
+};
 
-// LOGOUT
+/* LOGOUT */
 window.logout = function() {
     signOut(auth);
+};
+
+/* SESSION CONTROL */
+async function handleSession(user) {
+    const deviceId = getDeviceId();
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+        await setDoc(ref, {
+            email: user.email,
+            activeDevice: deviceId
+        });
+    } else {
+        const data = snap.data();
+
+        // 👉 neue Session überschreibt alte (Kick)
+        await setDoc(ref, {
+            email: user.email,
+            activeDevice: deviceId
+        });
+    }
+
+    // Realtime Kick wenn anderes Gerät einloggt
+    onSnapshot(ref, (docSnap) => {
+        const data = docSnap.data();
+
+        if (data.activeDevice !== getDeviceId()) {
+            alert("❌ Du wurdest ausgeloggt (anderes Gerät aktiv)");
+            signOut(auth);
+        }
+    });
 }
 
-// LOGIN STATUS
+/* AUTH STATE */
 onAuthStateChanged(auth, (user) => {
-    if(user) {
+    if (user) {
         document.getElementById("login").style.display = "none";
         document.getElementById("app").style.display = "block";
+
+        handleSession(user);
     } else {
         document.getElementById("login").style.display = "block";
         document.getElementById("app").style.display = "none";
