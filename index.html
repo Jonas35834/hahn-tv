@@ -1,59 +1,219 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <title>Hahn.tv – Live</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>Hahn.tv – Live</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+}
+
+/* HEADER */
+header {
+    text-align: center;
+    padding: 20px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+}
+
+/* LOGIN */
+#login-box {
+    max-width: 400px;
+    margin: 100px auto;
+    background: rgba(255,255,255,0.05);
+    padding: 30px;
+    border-radius: 20px;
+    text-align: center;
+}
+
+input {
+    width: 90%;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 10px;
+    border: none;
+}
+
+button {
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: none;
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+}
+
+/* APP */
+#app {
+    display: none;
+}
+
+/* PLAYER */
+#player {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px;
+    position: relative;
+}
+
+/* LIVE BADGE */
+#live-badge {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: red;
+    padding: 5px 10px;
+    border-radius: 10px;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0.4; }
+}
+
+/* VIEWERS */
+#viewer-box {
+    margin-top: 15px;
+    text-align: center;
+    background: rgba(0,0,0,0.4);
+    padding: 10px;
+    border-radius: 10px;
+}
+
+/* TICKER */
+#ticker {
+    overflow: hidden;
+    white-space: nowrap;
+    background: #111;
+    padding: 10px;
+}
+
+#ticker span {
+    display: inline-block;
+    padding-left: 100%;
+    animation: ticker 15s linear infinite;
+}
+
+@keyframes ticker {
+    100% { transform: translateX(-100%); }
+}
+
+/* PROGRAMM */
+#programm {
+    max-width: 900px;
+    margin: 40px auto;
+}
+
+.sendung {
+    background: rgba(255,255,255,0.05);
+    padding: 15px;
+    border-radius: 15px;
+    margin-bottom: 10px;
+}
+
+/* LOGOUT */
+#logout {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+}
+</style>
 </head>
+
 <body>
 
-
-    
 <header>
-    <h1>Hahn.tv – Live</h1>
+<h1>📺 Hahn.tv – Live</h1>
 </header>
 
-<main>
-    <section id="player">
-        <div id="live-badge">LIVE</div>
-
-        <!-- Hier kommt später dein Hahn.tv Stream rein -->
-<div style="position:relative; padding-bottom:56.25%; height:0;">
-  <iframe src="https://www.youtube.com/embed/cs5-xmsx_Y8"
-  style="position:absolute; top:0; left:0; width:100%; height:100%;"
-  frameborder="0" allowfullscreen></iframe>
+<!-- LOGIN -->
+<div id="login-box">
+    <h2>Login</h2>
+    <input id="username" placeholder="Name">
+    <input id="password" type="password" placeholder="Passwort">
+    <br>
+    <button onclick="login()">Einloggen</button>
 </div>
-    </section>
 
-    <section id="ticker">
-        <span>Breaking News: Schule als Staat – Hahn.tv sendet jetzt 24/7 • Live-Reporter im Einsatz • Dein Staat. Dein Sender.</span>
-    </section>
+<!-- APP -->
+<div id="app">
 
-    <section id="programm">
-        <h2>Heutiges Programm</h2>
+<button id="logout" onclick="logout()">Logout</button>
 
-        <div class="sendung"><strong>Kommt noch</strong>
-    </section>
-</main>
+<section id="player">
+    <div id="live-badge">LIVE</div>
+
+    <div style="position:relative; padding-bottom:56.25%; height:0;">
+        <iframe src="https://www.youtube.com/embed/cs5-xmsx_Y8"
+        style="position:absolute; width:100%; height:100%;"
+        frameborder="0" allowfullscreen></iframe>
+    </div>
+
+    <div id="viewer-box">
+        👀 Zuschauer: <span id="viewer-count">120</span>
+    </div>
+</section>
+
+<section id="ticker">
+<span>Breaking News: Hahn.tv läuft jetzt live • Schule als Staat • Dein Sender</span>
+</section>
+
+<section id="programm">
+<h2>Programm</h2>
+<div class="sendung">08:00 – News</div>
+<div class="sendung">10:00 – Gaming Show</div>
+<div class="sendung">12:00 – Interviews</div>
+</section>
+
+</div>
+
+<script>
+// LOGIN SYSTEM (lokal gespeichert)
+function login() {
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+
+    if(user && pass) {
+        localStorage.setItem("user", user);
+        showApp();
+    } else {
+        alert("Bitte Daten eingeben");
+    }
+}
+
+function logout() {
+    localStorage.removeItem("user");
+    location.reload();
+}
+
+function showApp() {
+    document.getElementById("login-box").style.display = "none";
+    document.getElementById("app").style.display = "block";
+}
+
+// Auto Login
+if(localStorage.getItem("user")) {
+    showApp();
+}
+
+// Zuschauer Simulation
+let viewers = 120;
+
+setInterval(() => {
+    let change = Math.floor(Math.random() * 5) - 2;
+    viewers += change;
+
+    if(viewers < 50) viewers = 50;
+
+    document.getElementById("viewer-count").textContent = viewers;
+}, 2000);
+</script>
 
 </body>
-
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
