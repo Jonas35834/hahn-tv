@@ -2,217 +2,135 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Hahn.tv – Live</title>
+<title>Hahn.tv</title>
 
 <style>
 body {
     margin: 0;
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #0f172a, #1e293b);
+    font-family: Arial;
+    background: #0f172a;
     color: white;
-}
-
-/* HEADER */
-header {
-    text-align: center;
-    padding: 20px;
-    background: rgba(0,0,0,0.6);
-    backdrop-filter: blur(10px);
-}
-
-/* LOGIN */
-#login-box {
-    max-width: 400px;
-    margin: 100px auto;
-    background: rgba(255,255,255,0.05);
-    padding: 30px;
-    border-radius: 20px;
     text-align: center;
 }
 
-input {
-    width: 90%;
+#app { display:none; }
+
+input, button {
     padding: 10px;
-    margin: 10px 0;
+    margin: 5px;
     border-radius: 10px;
     border: none;
 }
 
 button {
-    padding: 10px 20px;
-    border-radius: 10px;
-    border: none;
     background: #2563eb;
     color: white;
     cursor: pointer;
 }
 
-/* APP */
-#app {
-    display: none;
-}
-
-/* PLAYER */
 #player {
-    max-width: 900px;
-    margin: 40px auto;
-    padding: 20px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 20px;
-    position: relative;
-}
-
-/* LIVE BADGE */
-#live-badge {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-    background: red;
-    padding: 5px 10px;
-    border-radius: 10px;
-    animation: blink 1s infinite;
-}
-
-@keyframes blink {
-    50% { opacity: 0.4; }
-}
-
-/* VIEWERS */
-#viewer-box {
-    margin-top: 15px;
-    text-align: center;
-    background: rgba(0,0,0,0.4);
-    padding: 10px;
-    border-radius: 10px;
-}
-
-/* TICKER */
-#ticker {
-    overflow: hidden;
-    white-space: nowrap;
-    background: #111;
-    padding: 10px;
-}
-
-#ticker span {
-    display: inline-block;
-    padding-left: 100%;
-    animation: ticker 15s linear infinite;
-}
-
-@keyframes ticker {
-    100% { transform: translateX(-100%); }
-}
-
-/* PROGRAMM */
-#programm {
-    max-width: 900px;
-    margin: 40px auto;
-}
-
-.sendung {
-    background: rgba(255,255,255,0.05);
-    padding: 15px;
-    border-radius: 15px;
-    margin-bottom: 10px;
-}
-
-/* LOGOUT */
-#logout {
-    position: fixed;
-    top: 10px;
-    right: 10px;
+    margin-top: 20px;
 }
 </style>
 </head>
 
 <body>
 
-<header>
-<h1>📺 Hahn.tv – Live</h1>
-</header>
+<h1>📺 Hahn.tv</h1>
 
 <!-- LOGIN -->
-<div id="login-box">
+<div id="login">
     <h2>Login</h2>
-    <input id="username" placeholder="Name">
+    <input id="email" placeholder="E-Mail">
     <input id="password" type="password" placeholder="Passwort">
     <br>
-    <button onclick="login()">Einloggen</button>
+    <button onclick="register()">Registrieren</button>
+    <button onclick="login()">Login</button>
 </div>
 
 <!-- APP -->
 <div id="app">
 
-<button id="logout" onclick="logout()">Logout</button>
+    <h2>Live Stream</h2>
 
-<section id="player">
-    <div id="live-badge">LIVE</div>
-
-    <div style="position:relative; padding-bottom:56.25%; height:0;">
-        <iframe src="https://www.youtube.com/embed/cs5-xmsx_Y8"
-        style="position:absolute; width:100%; height:100%;"
+    <div id="player">
+        <iframe width="560" height="315"
+        src="https://www.youtube.com/embed/cs5-xmsx_Y8"
         frameborder="0" allowfullscreen></iframe>
     </div>
 
-    <div id="viewer-box">
-        👀 Zuschauer: <span id="viewer-count">120</span>
-    </div>
-</section>
-
-<section id="ticker">
-<span>Breaking News: Hahn.tv läuft jetzt live • Schule als Staat • Dein Sender</span>
-</section>
-
-<section id="programm">
-<h2>Programm</h2>
-<div class="sendung">08:00 – News</div>
-<div class="sendung">10:00 – Gaming Show</div>
-<div class="sendung">12:00 – Interviews</div>
-</section>
-
+    <br>
+    <button onclick="logout()">Logout</button>
 </div>
 
-<script>
-// LOGIN SYSTEM (lokal gespeichert)
-function login() {
-    const user = document.getElementById("username").value;
-    const pass = document.getElementById("password").value;
+<!-- FIREBASE -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { 
+    getAuth, 
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-    if(user && pass) {
-        localStorage.setItem("user", user);
-        showApp();
+// 🔥 DEINE FIREBASE CONFIG HIER EINSETZEN
+ const firebaseConfig = {
+
+    apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
+
+    authDomain: "ohg-tv.firebaseapp.com",
+
+    projectId: "ohg-tv",
+
+    storageBucket: "ohg-tv.firebasestorage.app",
+
+    messagingSenderId: "700588840705",
+
+    appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
+
+  };
+
+
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+// REGISTER
+window.register = function() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    createUserWithEmailAndPassword(auth, email, password)
+    .then(() => alert("Registriert!"))
+    .catch(err => alert(err.message));
+}
+
+// LOGIN
+window.login = function() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    signInWithEmailAndPassword(auth, email, password)
+    .catch(err => alert(err.message));
+}
+
+// LOGOUT
+window.logout = function() {
+    signOut(auth);
+}
+
+// LOGIN STATUS
+onAuthStateChanged(auth, (user) => {
+    if(user) {
+        document.getElementById("login").style.display = "none";
+        document.getElementById("app").style.display = "block";
     } else {
-        alert("Bitte Daten eingeben");
+        document.getElementById("login").style.display = "block";
+        document.getElementById("app").style.display = "none";
     }
-}
-
-function logout() {
-    localStorage.removeItem("user");
-    location.reload();
-}
-
-function showApp() {
-    document.getElementById("login-box").style.display = "none";
-    document.getElementById("app").style.display = "block";
-}
-
-// Auto Login
-if(localStorage.getItem("user")) {
-    showApp();
-}
-
-// Zuschauer Simulation
-let viewers = 120;
-
-setInterval(() => {
-    let change = Math.floor(Math.random() * 5) - 2;
-    viewers += change;
-
-    if(viewers < 50) viewers = 50;
-
-    document.getElementById("viewer-count").textContent = viewers;
-}, 2000);
+});
 </script>
 
 </body>
