@@ -45,7 +45,6 @@ button {
 
 <h1>📺 Hahn.tv</h1>
 
-<!-- LOGIN -->
 <div id="login">
     <h2>Login</h2>
     <input id="email" placeholder="E-Mail">
@@ -54,7 +53,6 @@ button {
     <button onclick="login()">Login</button>
 </div>
 
-<!-- APP -->
 <div id="app">
 
     <h2>Live Stream</h2>
@@ -64,7 +62,6 @@ button {
 
     <button onclick="logout()">Logout</button>
 
-    <!-- ADMIN -->
     <div id="admin" style="display:none; margin-top:40px;">
         <h2>👨‍💼 Admin Panel</h2>
 
@@ -103,28 +100,17 @@ import {
 
 /* 🔥 FIREBASE CONFIG */
 const firebaseConfig = {
-
-  apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
-
-  authDomain: "ohg-tv.firebaseapp.com",
-
-  projectId: "ohg-tv",
-
-  storageBucket: "ohg-tv.firebasestorage.app",
-
-  messagingSenderId: "700588840705",
-
-  appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
-
+    apiKey: "DEIN_API_KEY",
+    authDomain: "DEIN_PROJECT.firebaseapp.com",
+    projectId: "DEIN_PROJECT",
+    appId: "DEIN_APP_ID"
 };
-
-
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/* DEVICE */
+/* DEVICE ID */
 function getDeviceId() {
     let id = localStorage.getItem("deviceId");
     if (!id) {
@@ -138,8 +124,8 @@ function getDeviceId() {
 window.login = function() {
     const email = document.getElementById("email").value;
     const password = document.getElementById("password").value;
-
-    signInWithEmailAndPassword(auth, email, password);
+    signInWithEmailAndPassword(auth, email, password)
+        .catch(err => alert(err.message));
 };
 
 /* LOGOUT */
@@ -147,17 +133,16 @@ window.logout = function() {
     signOut(auth);
 };
 
-/* STREAM LADEN */
+/* STREAM */
 function loadStream(plan) {
     const ref = doc(db, "config", "stream");
 
     onSnapshot(ref, (snap) => {
         const data = snap.data();
-
-        let url = data?.free;
+        let url = data?.free || "";
 
         if (plan === "premium") {
-            url = data?.premium;
+            url = data?.premium || url;
         }
 
         document.getElementById("player").innerHTML = `
@@ -168,21 +153,28 @@ function loadStream(plan) {
     });
 }
 
-/* SESSION + ABO + DEVICE LOCK */
+/* HAUPT LOGIK */
 async function handleUser(user) {
     const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
 
-    if (!snap.exists()) return;
+    let snap = await getDoc(ref);
 
-    const data = snap.data();
+    // USER ERSTELLEN
+    if (!snap.exists()) {
+        await setDoc(ref, {
+            email: user.email,
+            plan: "free",
+            role: "user",
+            activeDevice: getDeviceId()
+        });
+
+        snap = await getDoc(ref);
+    }
+
+    let data = snap.data();
 
     // DEVICE LOCK
     const deviceId = getDeviceId();
-    await setDoc(ref, {
-        ...data,
-        activeDevice: deviceId
-    });
 
     if (data.activeDevice && data.activeDevice !== deviceId) {
         alert("❌ anderes Gerät aktiv");
@@ -190,10 +182,19 @@ async function handleUser(user) {
         return;
     }
 
-    // STREAM
-    loadStream(data.plan);
+    await setDoc(ref, {
+        ...data,
+        activeDevice: deviceId
+    });
 
-    // VIEWERS
+    // NEUE DATEN LADEN
+    const freshSnap = await getDoc(ref);
+    const freshData = freshSnap.data();
+
+    // STREAM
+    loadStream(freshData?.plan || "free");
+
+    // VIEWER
     const vRef = doc(db, "stats", "viewers");
     await setDoc(vRef, { count: increment(1) }, { merge: true });
 
@@ -202,9 +203,12 @@ async function handleUser(user) {
             "👀 Zuschauer: " + (snap.data()?.count || 0);
     });
 
-    // ADMIN CHECK
-    if (data.role === "admin") {
-        document.getElementById("admin").style.display = "block";
+    // ADMIN
+    const isAdmin = freshData && freshData.role === "admin";
+
+    document.getElementById("admin").style.display = isAdmin ? "block" : "none";
+
+    if (isAdmin) {
         loadAdmin();
         loadStreamInputs();
     }
@@ -222,7 +226,6 @@ async function handleUser(user) {
 /* ADMIN USER LIST */
 async function loadAdmin() {
     const users = await getDocs(collection(db, "users"));
-
     const box = document.getElementById("userList");
     box.innerHTML = "";
 
@@ -249,21 +252,26 @@ window.setPlan = async function(uid, plan) {
     loadAdmin();
 };
 
-/* STREAM UPDATE */
+/* STREAM ÄNDERN */
 window.updateStream = async function() {
     await updateDoc(doc(db, "config", "stream"), {
         free: document.getElementById("freeStream").value,
         premium: document.getElementById("premiumStream").value
     });
-
     alert("Stream aktualisiert");
 };
 
-/* STREAM INPUTS LADEN */
+/* STREAM INPUTS */
 async function loadStreamInputs() {
     const snap = await getDoc(doc(db, "config", "stream"));
 
-    if (!snap.exists()) return;
+    if (!snap.exists()) {
+        await setDoc(doc(db, "config", "stream"), {
+            free: "",
+            premium: ""
+        });
+        return;
+    }
 
     const d = snap.data();
 
