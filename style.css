@@ -1,1 +1,167 @@
+/* =========================
+   OHG-TV DESIGN
+========================= */
 
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: white;
+    overflow-x: hidden;
+}
+
+/* APP */
+#app {
+    display: block;
+    padding: 15px;
+    max-width: 900px;
+    margin: auto;
+}
+
+/* TITEL */
+h1 {
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 5px;
+    font-size: 30px;
+}
+
+.subtitle {
+    text-align: center;
+    opacity: 0.75;
+    margin-bottom: 25px;
+}
+
+/* LIVE HEADER */
+.liveHeader {
+    position: sticky;
+    top: 0;
+    background: #0f172a;
+    padding: 10px 0;
+    z-index: 50;
+}
+
+/* LOGIN */
+#login {
+    margin-top: 30px;
+    text-align: center;
+}
+
+/* INPUTS */
+input {
+    width: 100%;
+    max-width: 320px;
+    padding: 14px;
+    margin: 6px 0;
+    border-radius: 14px;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    box-sizing: border-box;
+}
+
+/* BUTTONS */
+button {
+    width: 100%;
+    max-width: 320px;
+    padding: 14px;
+    margin-top: 10px;
+    border-radius: 14px;
+    border: none;
+    background: #2563eb;
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+/* BUTTON HOVER */
+button:hover {
+    transform: scale(1.02);
+    opacity: 0.95;
+}
+
+/* STREAM */
+#player {
+    margin-top: 15px;
+}
+
+/* VIEWER */
+#viewer {
+    margin-top: 18px;
+    text-align: center;
+    font-size: 18px;
+    opacity: 0.9;
+}
+
+/* CARD */
+.card {
+    background: rgba(255,255,255,0.06);
+    padding: 18px;
+    border-radius: 18px;
+    margin-top: 18px;
+    backdrop-filter: blur(10px);
+}
+
+/* PREMIUM */
+#premiumAd {
+    display: none;
+    text-align: center;
+
+    background:
+    linear-gradient(
+        135deg,
+        #2563eb,
+        #7c3aed
+    );
+
+    box-shadow:
+    0 10px 30px rgba(0,0,0,0.4);
+}
+
+/* PREMIUM TEXT */
+#premiumAd p {
+    line-height: 1.5;
+    opacity: 0.95;
+}
+
+/* PREMIUM LINK */
+#premiumAd a {
+    color: white;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+/* ADMIN */
+#admin {
+    display: none;
+    margin-top: 35px;
+}
+
+/* USER LIST */
+#userList {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* MOBILE */
+@media (max-width: 600px) {
+
+    h1 {
+        font-size: 25px;
+    }
+
+    button {
+        width: 100%;
+    }
+
+    input {
+        width: 100%;
+    }
+
+    .card {
+        padding: 15px;
+    }
+}
