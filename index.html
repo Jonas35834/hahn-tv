@@ -37,7 +37,28 @@ content="width=device-width, initial-scale=1.0">
         👀 Zuschauer: 0
     </div>
 
-    <!-- PREMIUM WERBUNG -->
+    <!-- STATUS -->
+    <div id="statusBox" class="card">
+
+        <h3>👤 Konto</h3>
+
+        <p>
+            💳 Plan:
+            <span id="planText">
+                Free
+            </span>
+        </p>
+
+        <p>
+            👨‍💼 Admin:
+            <span id="adminText">
+                Nein
+            </span>
+        </p>
+
+    </div>
+
+    <!-- PREMIUM -->
     <div id="premiumAd" class="card">
 
         <h2>⭐ OHG-TV Premium</h2>
@@ -128,10 +149,7 @@ content="width=device-width, initial-scale=1.0">
 
 <script type="module">
 
-// =========================
-// FIREBASE IMPORTS
-// =========================
-
+// FIREBASE
 import {
     initializeApp
 }
@@ -158,10 +176,7 @@ import {
 }
 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// =========================
-// FIREBASE CONFIG
-// =========================
-
+// CONFIG
 const firebaseConfig = {
 
   apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
@@ -188,10 +203,7 @@ getAuth(app);
 const db =
 getFirestore(app);
 
-// =========================
 // DEVICE ID
-// =========================
-
 function getDeviceId() {
 
     let id =
@@ -210,10 +222,7 @@ function getDeviceId() {
     return id;
 }
 
-// =========================
 // LOGIN
-// =========================
-
 window.login = function() {
 
     const email =
@@ -235,20 +244,14 @@ window.login = function() {
     });
 };
 
-// =========================
 // LOGOUT
-// =========================
-
 window.logout = function() {
 
     signOut(auth);
 
 };
 
-// =========================
-// STREAM LADEN
-// =========================
-
+// STREAM
 function loadStream(plan) {
 
     const ref =
@@ -307,10 +310,7 @@ function loadStream(plan) {
     });
 }
 
-// =========================
-// USER HANDLING
-// =========================
-
+// USER
 async function handleUser(user) {
 
     const ref =
@@ -375,7 +375,18 @@ async function handleUser(user) {
     const freshData =
     freshSnap.data();
 
-    // PREMIUM STREAM
+    // STATUS
+    document.getElementById("planText")
+    .innerText =
+    freshData?.plan || "Free";
+
+    document.getElementById("adminText")
+    .innerText =
+    freshData?.role === "admin"
+    ? "Ja"
+    : "Nein";
+
+    // STREAM
     loadStream(
         freshData?.plan || "free"
     );
@@ -415,10 +426,7 @@ async function handleUser(user) {
     }
 }
 
-// =========================
-// ADMIN LADEN
-// =========================
-
+// ADMIN
 async function loadAdmin() {
 
     const users =
@@ -478,10 +486,7 @@ async function loadAdmin() {
     });
 }
 
-// =========================
 // PLAN ÄNDERN
-// =========================
-
 window.setPlan =
 async function(uid, plan) {
 
@@ -493,10 +498,7 @@ async function(uid, plan) {
     loadAdmin();
 };
 
-// =========================
 // STREAMS ÄNDERN
-// =========================
-
 window.updateStream =
 async function() {
 
@@ -521,10 +523,7 @@ async function() {
     );
 };
 
-// =========================
 // STREAM INPUTS
-// =========================
-
 async function loadStreamInputs() {
 
     const ref =
@@ -560,16 +559,10 @@ async function loadStreamInputs() {
     d.premium || "";
 }
 
-// =========================
-// STANDARD FREE STREAM
-// =========================
-
+// STANDARD STREAM
 loadStream("free");
 
-// =========================
 // AUTH
-// =========================
-
 onAuthStateChanged(
 auth,
 (user) => {
@@ -588,6 +581,16 @@ auth,
         "admin"
         ).style.display =
         "none";
+
+        document.getElementById(
+        "planText"
+        ).innerText =
+        "Free";
+
+        document.getElementById(
+        "adminText"
+        ).innerText =
+        "Nein";
 
         return;
     }
