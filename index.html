@@ -4,9 +4,7 @@
 <head>
 
 <meta charset="UTF-8">
-
-<meta name="viewport"
-content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>OHG-TV</title>
 
@@ -19,72 +17,37 @@ content="width=device-width, initial-scale=1.0">
 <div id="app">
 
     <h1>📺 OHG-TV</h1>
+    <div class="subtitle">Dein Schulsender • Live • 24/7</div>
 
-    <div class="subtitle">
-        Dein Schulsender • Live • 24/7
-    </div>
+    <h2>🔴 LIVE</h2>
 
-    <!-- LIVE -->
-    <h2 class="liveHeader">
-        🔴 LIVE
-    </h2>
-
-    <!-- STREAM -->
     <div id="player"></div>
 
-    <!-- VIEWER -->
-    <div id="viewer">
-        👀 Zuschauer: 0
-    </div>
+    <div id="viewer">👀 Zuschauer: 0</div>
 
     <!-- STATUS -->
     <div id="statusBox" class="card">
-
         <h3>👤 Konto</h3>
 
-        <p>
-            💳 Plan:
-            <span id="planText">
-                Free
-            </span>
-        </p>
-
-        <p>
-            👨‍💼 Admin:
-            <span id="adminText">
-                Nein
-            </span>
-        </p>
-
+        <p>💳 Plan: <span id="planText">Free</span></p>
+        <p>👨‍💼 Admin: <span id="adminText">Nein</span></p>
     </div>
 
-    <!-- PREMIUM -->
+    <!-- WERBUNG -->
     <div id="premiumAd" class="card">
 
         <h2>⭐ OHG-TV Premium</h2>
 
-        <p>
-            Premium Streams • Keine Werbung • Extras
-        </p>
+        <p>Keine Werbung • Premium Streams • Extras</p>
 
-        <button onclick="
-        document.getElementById('login')
-        .scrollIntoView({
-            behavior:'smooth'
-        })">
-
+        <button onclick="document.getElementById('login').scrollIntoView({behavior:'smooth'})">
             🔐 Premium Login
-
         </button>
 
         <br><br>
 
-        <a
-        href="https://teams.microsoft.com"
-        target="_blank">
-
+        <a href="https://teams.microsoft.com" target="_blank">
             💬 Teams Nachricht an Jonas Hohl senden
-
         </a>
 
     </div>
@@ -94,23 +57,12 @@ content="width=device-width, initial-scale=1.0">
 
         <h2>🔒 Premium Login</h2>
 
-        <form onsubmit="
-        login();
-        return false;
-        ">
+        <form onsubmit="login(); return false;">
 
-            <input
-            id="email"
-            placeholder="E-Mail">
+            <input id="email" placeholder="E-Mail">
+            <input id="password" type="password" placeholder="Passwort">
 
-            <input
-            id="password"
-            type="password"
-            placeholder="Passwort">
-
-            <button type="submit">
-                Premium Login
-            </button>
+            <button type="submit">Login</button>
 
         </form>
 
@@ -121,488 +73,198 @@ content="width=device-width, initial-scale=1.0">
 
         <h2>👨‍💼 Admin Panel</h2>
 
-        <h3>User verwalten</h3>
-
         <div id="userList"></div>
 
-        <h3>🎥 Streams ändern</h3>
+        <h3>Streams</h3>
 
-        <input
-        id="freeStream"
-        placeholder="Free Stream URL">
+        <input id="freeStream" placeholder="Free Stream">
+        <input id="premiumStream" placeholder="Premium Stream">
 
-        <input
-        id="premiumStream"
-        placeholder="Premium Stream URL">
-
-        <button onclick="updateStream()">
-            Streams speichern
-        </button>
-
-        <button onclick="logout()">
-            Logout
-        </button>
+        <button onclick="updateStream()">Speichern</button>
+        <button onclick="logout()">Logout</button>
 
     </div>
 
 </div>
 
+<!-- IMPRESSUM -->
+<footer>
+    <a href="#" onclick="openImpressum()">Impressum</a>
+</footer>
+
+<div id="impressumPopup">
+    <div id="impressumBox">
+
+        <h2>Impressum</h2>
+
+        <p>
+            OHG-TV<br>
+            Schulprojekt<br><br>
+
+            Verantwortlich:<br>
+            Jonas Hohl<br><br>
+
+            E-Mail:<br>
+            kontakt@ohg-tv.de
+        </p>
+
+        <button onclick="closeImpressum()">Schließen</button>
+
+    </div>
+</div>
+
 <script type="module">
 
-// FIREBASE
-import {
-    initializeApp
-}
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import {
-    getAuth,
-    signInWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged
-}
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-
-import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc,
-    updateDoc,
-    onSnapshot,
-    collection,
-    getDocs,
-    increment
-}
-from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-// CONFIG
+// 🔥 FIREBASE CONFIG
 const firebaseConfig = {
-
   apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
-
   authDomain: "ohg-tv.firebaseapp.com",
-
   projectId: "ohg-tv",
-
   storageBucket: "ohg-tv.firebasestorage.app",
-
   messagingSenderId: "700588840705",
-
   appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
-
 };
 
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-const app =
-initializeApp(firebaseConfig);
-
-const auth =
-getAuth(app);
-
-const db =
-getFirestore(app);
-
-// DEVICE ID
 function getDeviceId() {
-
-    let id =
-    localStorage.getItem("deviceId");
-
+    let id = localStorage.getItem("deviceId");
     if (!id) {
-
         id = crypto.randomUUID();
-
-        localStorage.setItem(
-            "deviceId",
-            id
-        );
+        localStorage.setItem("deviceId", id);
     }
-
     return id;
 }
 
 // LOGIN
 window.login = function() {
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
 
-    const email =
-    document.getElementById("email")
-    .value;
-
-    const password =
-    document.getElementById("password")
-    .value;
-
-    signInWithEmailAndPassword(
-        auth,
-        email,
-        password
-    ).catch(err => {
-
-        alert(err.message);
-
-    });
+    signInWithEmailAndPassword(auth, email, password)
+        .catch(err => alert(err.message));
 };
 
 // LOGOUT
 window.logout = function() {
-
     signOut(auth);
-
 };
 
 // STREAM
 function loadStream(plan) {
-
-    const ref =
-    doc(db, "config", "stream");
+    const ref = doc(db, "config", "stream");
 
     onSnapshot(ref, (snap) => {
 
-        let url =
-        "https://www.youtube.com/embed/live_stream?channel=UC4R8DWoMoI7CAwX8_LjQHig";
+        const data = snap.data();
 
-        const data =
-        snap.data();
+        let url = "https://www.youtube.com/embed/live_stream?channel=UC4R8DWoMoI7CAwX8_LjQHig";
 
         if (data) {
-
-            if (plan === "premium") {
-
-                url =
-                data.premium || url;
-
-            } else {
-
-                url =
-                data.free || url;
-            }
+            url = plan === "premium" ? data.premium || url : data.free || url;
         }
 
-        document.getElementById("player")
-        .innerHTML = `
-
-        <div style="
-            position:relative;
-            width:100%;
-            padding-top:56.25%;
-            border-radius:18px;
-            overflow:hidden;
-            box-shadow:
-            0 10px 30px rgba(0,0,0,0.4);
-        ">
-
-            <iframe
-            src="${url}"
-            allowfullscreen
-            style="
-                position:absolute;
-                top:0;
-                left:0;
-                width:100%;
-                height:100%;
-                border:0;
-            ">
-            </iframe>
-
-        </div>
-        `;
+        document.getElementById("player").innerHTML = `
+        <div style="position:relative;padding-top:56.25%;">
+            <iframe src="${url}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"></iframe>
+        </div>`;
     });
 }
 
 // USER
 async function handleUser(user) {
 
-    const ref =
-    doc(db, "users", user.uid);
+    const ref = doc(db, "users", user.uid);
+    let snap = await getDoc(ref);
 
-    let snap =
-    await getDoc(ref);
-
-    // USER ERSTELLEN
     if (!snap.exists()) {
-
         await setDoc(ref, {
-
             email: user.email,
-
             role: "user",
-
             plan: "free",
-
-            activeDevice:
-            getDeviceId()
-
+            activeDevice: getDeviceId()
         });
-
-        snap =
-        await getDoc(ref);
+        snap = await getDoc(ref);
     }
 
-    const data =
-    snap.data();
+    const data = snap.data();
 
-    const deviceId =
-    getDeviceId();
+    document.getElementById("planText").innerText = data.plan;
+    document.getElementById("adminText").innerText = data.role === "admin" ? "Ja" : "Nein";
 
-    // DEVICE LOCK
-    if (
-        data.activeDevice &&
-        data.activeDevice !== deviceId
-    ) {
+    loadStream(data.plan);
 
-        alert(
-        "❌ anderes Gerät aktiv"
-        );
+    const isAdmin = data.role === "admin";
 
-        signOut(auth);
+    document.getElementById("admin").style.display = isAdmin ? "block" : "none";
 
-        return;
-    }
-
-    await setDoc(ref, {
-
-        ...data,
-
-        activeDevice:
-        deviceId
-
-    });
-
-    const freshSnap =
-    await getDoc(ref);
-
-    const freshData =
-    freshSnap.data();
-
-    // STATUS
-    document.getElementById("planText")
-    .innerText =
-    freshData?.plan || "Free";
-
-    document.getElementById("adminText")
-    .innerText =
-    freshData?.role === "admin"
-    ? "Ja"
-    : "Nein";
-
-    // STREAM
-    loadStream(
-        freshData?.plan || "free"
-    );
-
-    // VIEWER
-    const vRef =
-    doc(db, "stats", "viewers");
-
-    await setDoc(vRef, {
-
-        count: increment(1)
-
-    }, { merge:true });
-
-    onSnapshot(vRef, (snap) => {
-
-        document.getElementById("viewer")
-        .innerText =
-        "👀 Zuschauer: " +
-        (snap.data()?.count || 0);
-
-    });
-
-    // ADMIN
-    const isAdmin =
-    freshData?.role === "admin";
-
-    document.getElementById("admin")
-    .style.display =
-    isAdmin ? "block" : "none";
-
-    if (isAdmin) {
-
-        loadAdmin();
-
-        loadStreamInputs();
-    }
+    if (isAdmin) loadAdmin();
 }
 
 // ADMIN
 async function loadAdmin() {
-
-    const users =
-    await getDocs(
-        collection(db, "users")
-    );
-
-    const box =
-    document.getElementById(
-        "userList"
-    );
+    const users = await getDocs(collection(db, "users"));
+    const box = document.getElementById("userList");
 
     box.innerHTML = "";
 
     users.forEach(u => {
+        const d = u.data();
 
-        const d =
-        u.data();
-
-        const div =
-        document.createElement("div");
-
+        const div = document.createElement("div");
         div.className = "card";
 
         div.innerHTML = `
-
-        <b>${d.email}</b><br>
-
-        Plan:
-        ${d.plan || "free"}
+        ${d.email}<br>
+        Plan: ${d.plan}
 
         <br><br>
 
-        <button onclick="
-        setPlan(
-            '${u.id}',
-            'premium'
-        )">
-
-            Premium
-
-        </button>
-
-        <button onclick="
-        setPlan(
-            '${u.id}',
-            'free'
-        )">
-
-            Free
-
-        </button>
+        <button onclick="setPlan('${u.id}','premium')">Premium</button>
+        <button onclick="setPlan('${u.id}','free')">Free</button>
         `;
 
         box.appendChild(div);
-
     });
 }
 
-// PLAN ÄNDERN
-window.setPlan =
-async function(uid, plan) {
-
-    await updateDoc(
-        doc(db, "users", uid),
-        { plan }
-    );
-
+window.setPlan = async function(uid, plan) {
+    await updateDoc(doc(db, "users", uid), { plan });
     loadAdmin();
 };
 
-// STREAMS ÄNDERN
-window.updateStream =
-async function() {
-
-    await updateDoc(
-        doc(db, "config", "stream"),
-        {
-
-            free:
-            document.getElementById(
-            "freeStream"
-            ).value,
-
-            premium:
-            document.getElementById(
-            "premiumStream"
-            ).value
-        }
-    );
-
-    alert(
-    "Streams gespeichert"
-    );
-};
-
-// STREAM INPUTS
-async function loadStreamInputs() {
-
-    const ref =
-    doc(db, "config", "stream");
-
-    const snap =
-    await getDoc(ref);
-
-    if (!snap.exists()) {
-
-        await setDoc(ref, {
-
-            free: "",
-
-            premium: ""
-
-        });
-
-        return;
-    }
-
-    const d =
-    snap.data();
-
-    document.getElementById(
-    "freeStream"
-    ).value =
-    d.free || "";
-
-    document.getElementById(
-    "premiumStream"
-    ).value =
-    d.premium || "";
-}
-
-// STANDARD STREAM
-loadStream("free");
-
 // AUTH
-onAuthStateChanged(
-auth,
-(user) => {
+onAuthStateChanged(auth, (user) => {
 
-    // NICHT EINGELOGGT
     if (!user) {
-
         loadStream("free");
+        document.getElementById("premiumAd").style.display = "block";
+        document.getElementById("admin").style.display = "none";
 
-        document.getElementById(
-        "premiumAd"
-        ).style.display =
-        "block";
-
-        document.getElementById(
-        "admin"
-        ).style.display =
-        "none";
-
-        document.getElementById(
-        "planText"
-        ).innerText =
-        "Free";
-
-        document.getElementById(
-        "adminText"
-        ).innerText =
-        "Nein";
+        document.getElementById("planText").innerText = "Free";
+        document.getElementById("adminText").innerText = "Nein";
 
         return;
     }
 
-    // EINGELOGGT
-    document.getElementById(
-    "premiumAd"
-    ).style.display =
-    "none";
-
+    document.getElementById("premiumAd").style.display = "none";
     handleUser(user);
 });
+
+// IMPRESSUM
+window.openImpressum = () => {
+    document.getElementById("impressumPopup").style.display = "flex";
+};
+
+window.closeImpressum = () => {
+    document.getElementById("impressumPopup").style.display = "none";
+};
 
 </script>
 
