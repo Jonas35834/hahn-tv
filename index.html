@@ -1,15 +1,12 @@
 <!DOCTYPE html>
 <html lang="de">
-
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>OHG-TV</title>
 
-<link rel="stylesheet" href="./style.css">
-
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
@@ -17,61 +14,52 @@
 <div id="app">
 
     <h1>📺 OHG-TV</h1>
-    <div class="subtitle">Dein Schulsender • Live • 24/7</div>
 
-    <h2>🔴 LIVE</h2>
+    <div class="subtitle">
+        Live • Schule • 24/7
+    </div>
 
+    <!-- PLAYER -->
     <div id="player"></div>
 
     <div id="viewer">👀 Zuschauer: 0</div>
 
     <!-- STATUS -->
-    <div id="statusBox" class="card">
-        <h3>👤 Konto</h3>
-
-        <p>💳 Plan: <span id="planText">Free</span></p>
-        <p>👨‍💼 Admin: <span id="adminText">Nein</span></p>
+    <div class="card">
+        <p>💳 Plan: <span id="planText">-</span></p>
+        <p>👨‍💼 Admin: <span id="adminText">-</span></p>
     </div>
 
     <!-- WERBUNG -->
-    <div id="premiumAd" class="card">
-
-        <h2>⭐ OHG-TV Premium</h2>
-
-        <p>Keine Werbung • Premium Streams • Extras</p>
+    <div id="ad" class="card">
+        <h3>⭐ Premium</h3>
+        <p>Login erforderlich</p>
 
         <button onclick="document.getElementById('login').scrollIntoView({behavior:'smooth'})">
-            🔐 Premium Login
+            Login
         </button>
 
-        <br><br>
-
         <a href="https://teams.microsoft.com" target="_blank">
-            💬 Teams Nachricht an Jonas Hohl senden
+            Teams Nachricht
         </a>
-
     </div>
 
     <!-- LOGIN -->
-    <div id="login">
+    <div id="login" class="card">
 
-        <h2>🔒 Premium Login</h2>
+        <h2>Login</h2>
 
-        <form onsubmit="login(); return false;">
+        <input id="email" placeholder="E-Mail">
+        <input id="password" type="password" placeholder="Passwort">
 
-            <input id="email" placeholder="E-Mail">
-            <input id="password" type="password" placeholder="Passwort">
-
-            <button type="submit">Login</button>
-
-        </form>
+        <button onclick="login()">Login</button>
 
     </div>
 
     <!-- ADMIN -->
-    <div id="admin">
+    <div id="admin" class="card">
 
-        <h2>👨‍💼 Admin Panel</h2>
+        <h2>Admin Panel</h2>
 
         <div id="userList"></div>
 
@@ -81,35 +69,29 @@
         <input id="premiumStream" placeholder="Premium Stream">
 
         <button onclick="updateStream()">Speichern</button>
+
         <button onclick="logout()">Logout</button>
 
     </div>
 
 </div>
 
-<!-- IMPRESSUM -->
 <footer>
     <a href="#" onclick="openImpressum()">Impressum</a>
 </footer>
 
-<div id="impressumPopup">
-    <div id="impressumBox">
-
+<!-- IMPRESSUM -->
+<div id="impressum">
+    <div class="box">
         <h2>Impressum</h2>
-
         <p>
             OHG-TV<br>
-            Schulprojekt Schule als Staat<br>Otto-Hahn-Gymnasium Nagold<br><br>
-
-            Verantwortlich:<br>
-            Jonas Hohl<br><br>
-
-            E-Mail:<br>
-            webmaster (a) ohg-tv.de
+            Schulprojekt<br><br>
+            Jonas Hohl<br>
+            kontakt@ohg-tv.de
         </p>
 
         <button onclick="closeImpressum()">Schließen</button>
-
     </div>
 </div>
 
@@ -119,7 +101,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// 🔥 FIREBASE CONFIG
+// FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
   authDomain: "ohg-tv.firebaseapp.com",
@@ -133,138 +115,145 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-function getDeviceId() {
-    let id = localStorage.getItem("deviceId");
-    if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem("deviceId", id);
-    }
-    return id;
-}
-
 // LOGIN
-window.login = function() {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-
-    signInWithEmailAndPassword(auth, email, password)
-        .catch(err => alert(err.message));
+window.login = function () {
+    signInWithEmailAndPassword(
+        auth,
+        email.value,
+        password.value
+    ).catch(e => alert(e.message));
 };
 
-// LOGOUT
-window.logout = function() {
-    signOut(auth);
-};
+window.logout = () => signOut(auth);
 
-// STREAM
-function loadStream(plan) {
+// STREAM SYSTEM (WICHTIG)
+function loadStream(user) {
+
     const ref = doc(db, "config", "stream");
 
-    onSnapshot(ref, (snap) => {
+    onSnapshot(ref, snap => {
 
         const data = snap.data();
 
-        let url = "https://www.youtube.com/embed/live_stream?channel=UC4R8DWoMoI7CAwX8_LjQHig";
+        const url = user.plan === "premium"
+            ? data.premium
+            : data.free;
 
-        if (data) {
-            url = plan === "premium" ? data.premium || url : data.free || url;
-        }
-
-        document.getElementById("player").innerHTML = `
-        <div style="position:relative;padding-top:56.25%;">
-            <iframe src="${url}" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;"></iframe>
-        </div>`;
+        render(url);
     });
+}
+
+// PLAYER
+function render(url) {
+
+    if (url.includes(".m3u8")) {
+
+        player.innerHTML = `
+        <video id="video" controls autoplay style="width:100%"></video>
+        <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"><\/script>
+        `;
+
+        setTimeout(() => {
+
+            const video = document.getElementById("video");
+
+            const hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+
+        }, 100);
+
+    } else {
+
+        player.innerHTML = `
+        <iframe src="${url}"
+        style="width:100%;height:300px;border:0"></iframe>
+        `;
+    }
 }
 
 // USER
 async function handleUser(user) {
 
     const ref = doc(db, "users", user.uid);
+
     let snap = await getDoc(ref);
 
     if (!snap.exists()) {
         await setDoc(ref, {
             email: user.email,
-            role: "user",
             plan: "free",
-            activeDevice: getDeviceId()
+            role: "user"
         });
-        snap = await getDoc(ref);
     }
 
-    const data = snap.data();
+    const data = (await getDoc(ref)).data();
 
-    document.getElementById("planText").innerText = data.plan;
-    document.getElementById("adminText").innerText = data.role === "admin" ? "Ja" : "Nein";
+    planText.innerText = data.plan;
+    adminText.innerText = data.role === "admin" ? "Ja" : "Nein";
 
-    loadStream(data.plan);
+    loadStream(data);
 
-    const isAdmin = data.role === "admin";
-
-    document.getElementById("admin").style.display = isAdmin ? "block" : "none";
-
-    if (isAdmin) loadAdmin();
+    admin.style.display = data.role === "admin" ? "block" : "none";
 }
 
 // ADMIN
 async function loadAdmin() {
-    const users = await getDocs(collection(db, "users"));
-    const box = document.getElementById("userList");
 
-    box.innerHTML = "";
+    const users = await getDocs(collection(db, "users"));
+
+    userList.innerHTML = "";
 
     users.forEach(u => {
+
         const d = u.data();
 
         const div = document.createElement("div");
+
         div.className = "card";
 
         div.innerHTML = `
         ${d.email}<br>
-        Plan: ${d.plan}
-
-        <br><br>
+        ${d.plan}
 
         <button onclick="setPlan('${u.id}','premium')">Premium</button>
         <button onclick="setPlan('${u.id}','free')">Free</button>
         `;
 
-        box.appendChild(div);
+        userList.appendChild(div);
     });
 }
 
-window.setPlan = async function(uid, plan) {
-    await updateDoc(doc(db, "users", uid), { plan });
+window.setPlan = async (id, plan) => {
+    await updateDoc(doc(db,"users",id),{plan});
     loadAdmin();
 };
 
+window.updateStream = async () => {
+    await updateDoc(doc(db,"config","stream"),{
+        free: freeStream.value,
+        premium: premiumStream.value
+    });
+    alert("gespeichert");
+};
+
 // AUTH
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, user => {
 
     if (!user) {
-        loadStream("free");
-        document.getElementById("premiumAd").style.display = "block";
-        document.getElementById("admin").style.display = "none";
-
-        document.getElementById("planText").innerText = "Free";
-        document.getElementById("adminText").innerText = "Nein";
-
+        ad.style.display = "block";
+        admin.style.display = "none";
+        loadStream({plan:"free"});
         return;
     }
 
-    document.getElementById("premiumAd").style.display = "none";
+    ad.style.display = "none";
     handleUser(user);
 });
 
 // IMPRESSUM
-window.openImpressum = () => {
-    document.getElementById("impressumPopup").style.display = "flex";
-};
-
-window.closeImpressum = () => {
-    document.getElementById("impressumPopup").style.display = "none";
-};
+window.openImpressum = () => impressum.style.display = "flex";
+window.closeImpressum = () => impressum.style.display = "none";
 
 </script>
 
