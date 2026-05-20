@@ -1,259 +1,723 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <title>OHG-TV</title>
 
-<link rel="stylesheet" href="style.css">
+<style>
+
+body{
+    margin:0;
+    font-family:Arial;
+    background:#0f172a;
+    color:white;
+    text-align:center;
+}
+
+#app{
+    max-width:1000px;
+    margin:auto;
+    padding:15px;
+}
+
+h1{
+    margin-top:20px;
+}
+
+.card{
+    background:rgba(255,255,255,0.05);
+    border-radius:16px;
+    padding:15px;
+    margin-top:15px;
+}
+
+button{
+    background:#2563eb;
+    color:white;
+    border:none;
+    border-radius:12px;
+    padding:12px 20px;
+    cursor:pointer;
+    margin-top:10px;
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+input{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:12px;
+    margin-top:10px;
+}
+
+iframe,
+video{
+    width:100%;
+    border:none;
+    border-radius:18px;
+    background:black;
+}
+
+#admin{
+    display:none;
+}
+
+#status{
+    margin-top:10px;
+    opacity:0.8;
+}
+
+#loginRequired{
+    margin-top:20px;
+}
+
+#viewer{
+    margin-top:10px;
+}
+
+.userCard{
+    background:rgba(255,255,255,0.05);
+    padding:10px;
+    border-radius:12px;
+    margin-top:10px;
+}
+
+footer{
+    margin-top:40px;
+    padding:20px;
+    opacity:0.7;
+}
+
+</style>
+
 </head>
 
 <body>
 
 <div id="app">
 
-    <h1>📺 OHG-TV</h1>
+<h1>📺 OHG-TV</h1>
 
-    <div class="subtitle">
-        Live • Schule • 24/7
-    </div>
+<p>
+Schulfernsehen • Live • 24/7
+</p>
 
-    <!-- PLAYER -->
-    <div id="player"></div>
+<!-- PLAYER -->
+<div class="card">
 
-    <div id="viewer">👀 Zuschauer: 0</div>
+<div id="player">
 
-    <!-- STATUS -->
-    <div class="card">
-        <p>💳 Plan: <span id="planText">-</span></p>
-        <p>👨‍💼 Admin: <span id="adminText">-</span></p>
-    </div>
+<div id="loginRequired">
 
-    <!-- WERBUNG -->
-    <div id="ad" class="card">
-        <h3>⭐ Premium</h3>
-        <p>Login erforderlich</p>
+<h2>
+🔒 Login erforderlich
+</h2>
 
-        <button onclick="document.getElementById('login').scrollIntoView({behavior:'smooth'})">
-            Login
-        </button>
+<p>
+Bitte mit dem Schul-Microsoftkonto anmelden.
+</p>
 
-        <a href="https://teams.microsoft.com" target="_blank">
-            Teams Nachricht
-        </a>
-    </div>
+<button onclick="microsoftLogin()">
+Mit Microsoft anmelden
+</button>
 
-    <!-- LOGIN -->
-    <div id="login" class="card">
+</div>
 
-        <h2>Login</h2>
+</div>
 
-        <input id="email" placeholder="E-Mail">
-        <input id="password" type="password" placeholder="Passwort">
+<div id="viewer">
+👀 Zuschauer: 0
+</div>
 
-        <button onclick="login()">Login</button>
+</div>
 
-    </div>
+<!-- STATUS -->
+<div class="card">
 
-    <!-- ADMIN -->
-    <div id="admin" class="card">
+<div id="status">
 
-        <h2>Admin Panel</h2>
+<p>
+💳 Plan:
+<span id="planText">
+-
+</span>
+</p>
 
-        <div id="userList"></div>
+<p>
+👨‍💼 Admin:
+<span id="adminText">
+-
+</span>
+</p>
 
-        <h3>Streams</h3>
+</div>
 
-        <input id="freeStream" placeholder="Free Stream">
-        <input id="premiumStream" placeholder="Premium Stream">
+<button
+id="logoutBtn"
+style="display:none;"
+onclick="logout()"
+>
+Logout
+</button>
 
-        <button onclick="updateStream()">Speichern</button>
+</div>
 
-        <button onclick="logout()">Logout</button>
+<!-- ADMIN -->
+<div id="admin" class="card">
 
-    </div>
+<h2>
+👨‍💼 Adminpanel
+</h2>
+
+<h3>
+🎥 Streams
+</h3>
+
+<input
+id="freeStream"
+placeholder="Free Stream URL"
+>
+
+<input
+id="premiumStream"
+placeholder="Premium Stream URL"
+>
+
+<button onclick="updateStream()">
+Speichern
+</button>
+
+<h3>
+👥 Benutzer
+</h3>
+
+<div id="userList"></div>
 
 </div>
 
 <footer>
-    <a href="#" onclick="openImpressum()">Impressum</a>
+OHG-TV
 </footer>
 
-<!-- IMPRESSUM -->
-<div id="impressum">
-    <div class="box">
-        <h2>Impressum</h2>
-        <p>
-            OHG-TV<br>
-            Schulprojekt<br><br>
-            Jonas Hohl<br>
-            kontakt@ohg-tv.de
-        </p>
-
-        <button onclick="closeImpressum()">Schließen</button>
-    </div>
 </div>
 
 <script type="module">
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, increment } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// FIREBASE IMPORTS
+import {
+initializeApp
+}
+from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
-// FIREBASE
+import {
+getAuth,
+signInWithPopup,
+OAuthProvider,
+signOut,
+onAuthStateChanged
+}
+from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+getFirestore,
+doc,
+getDoc,
+setDoc,
+updateDoc,
+collection,
+getDocs,
+onSnapshot,
+increment
+}
+from
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// FIREBASE CONFIG
 const firebaseConfig = {
-  apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
-  authDomain: "ohg-tv.firebaseapp.com",
-  projectId: "ohg-tv",
-  storageBucket: "ohg-tv.firebasestorage.app",
-  messagingSenderId: "700588840705",
-  appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
+
+apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
+
+authDomain: "ohg-tv.firebaseapp.com",
+
+projectId: "ohg-tv",
+
+storageBucket: "ohg-tv.firebasestorage.app",
+
+messagingSenderId: "700588840705",
+
+appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
+
 };
 
+// INIT
 const app = initializeApp(firebaseConfig);
+
 const auth = getAuth(app);
+
 const db = getFirestore(app);
 
-// LOGIN
-window.login = function () {
-    signInWithEmailAndPassword(
-        auth,
-        email.value,
-        password.value
-    ).catch(e => alert(e.message));
+// MICROSOFT LOGIN
+window.microsoftLogin =
+async function(){
+
+    const provider =
+    new OAuthProvider(
+    "microsoft.com"
+    );
+
+    // TENANT
+    provider.setCustomParameters({
+
+        tenant:
+        "D6e52e902-bb31-460e-b1b9-5b5bc2272acf"
+
+    });
+
+    try{
+
+        const result =
+        await signInWithPopup(
+            auth,
+            provider
+        );
+
+        const user =
+        result.user;
+
+        // NUR SCHULMAILS
+        if(
+            !user.email.endsWith(
+            "@ohgnagold.onmicrosoft.com"
+            )
+        ){
+
+            alert(
+            "Nur Schulaccounts erlaubt"
+            );
+
+            await signOut(auth);
+
+            return;
+        }
+
+        // USER DB
+        const ref =
+        doc(
+            db,
+            "users",
+            user.uid
+        );
+
+        const snap =
+        await getDoc(ref);
+
+        // USER ERSTELLEN
+        if(!snap.exists()){
+
+            await setDoc(ref,{
+
+                email:user.email,
+
+                plan:"free",
+
+                role:"user"
+
+            });
+
+        }
+
+    }catch(e){
+
+        alert(e.message);
+
+    }
+
 };
 
-window.logout = () => signOut(auth);
+// LOGOUT
+window.logout =
+function(){
 
-// STREAM SYSTEM (WICHTIG)
-function loadStream(user) {
+    signOut(auth);
 
-    const ref = doc(db, "config", "stream");
+};
 
-    onSnapshot(ref, snap => {
+// STREAM LADEN
+function loadStream(url){
 
-        const data = snap.data();
-
-        const url = user.plan === "premium"
-            ? data.premium
-            : data.free;
-
-        render(url);
-    });
-}
-
-// PLAYER
-function render(url) {
-
-    if (url.includes(".m3u8")) {
+    // HLS
+    if(
+        url.includes(".m3u8")
+    ){
 
         player.innerHTML = `
-        <video id="video" controls autoplay style="width:100%"></video>
-        <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"><\/script>
+
+        <video
+        id="video"
+        controls
+        autoplay
+        playsinline>
+        </video>
+
+        <script src="
+        https://cdn.jsdelivr.net/npm/hls.js@latest
+        "><\/script>
+
         `;
 
-        setTimeout(() => {
+        setTimeout(()=>{
 
-            const video = document.getElementById("video");
+            const video =
+            document.getElementById(
+            "video"
+            );
 
-            const hls = new Hls();
-            hls.loadSource(url);
-            hls.attachMedia(video);
+            if(Hls.isSupported()){
 
-        }, 100);
+                const hls =
+                new Hls();
 
-    } else {
+                hls.loadSource(
+                url
+                );
 
-        player.innerHTML = `
-        <iframe src="${url}"
-        style="width:100%;height:300px;border:0"></iframe>
-        `;
+                hls.attachMedia(
+                video
+                );
+
+            }else{
+
+                video.src = url;
+
+            }
+
+        },100);
+
     }
+
+    // YOUTUBE
+    else{
+
+        player.innerHTML = `
+
+        <iframe
+
+        src="${url}"
+
+        allowfullscreen
+
+        style="
+        height:500px;
+        "
+
+        >
+
+        </iframe>
+
+        `;
+
+    }
+
 }
 
 // USER
-async function handleUser(user) {
+async function handleUser(user){
 
-    const ref = doc(db, "users", user.uid);
+    const ref =
+    doc(
+        db,
+        "users",
+        user.uid
+    );
 
-    let snap = await getDoc(ref);
+    const snap =
+    await getDoc(ref);
 
-    if (!snap.exists()) {
-        await setDoc(ref, {
-            email: user.email,
-            plan: "free",
-            role: "user"
-        });
+    const data =
+    snap.data();
+
+    // STATUS
+    planText.innerText =
+    data.plan;
+
+    adminText.innerText =
+    data.role === "admin"
+    ? "Ja"
+    : "Nein";
+
+    logoutBtn.style.display =
+    "inline-block";
+
+    // STREAM CONFIG
+    const streamRef =
+    doc(
+        db,
+        "config",
+        "stream"
+    );
+
+    onSnapshot(
+    streamRef,
+    (streamSnap)=>{
+
+        const s =
+        streamSnap.data();
+
+        // PREMIUM
+        if(
+            data.plan ===
+            "premium"
+        ){
+
+            loadStream(
+            s.premium
+            );
+
+        }
+
+        // FREE
+        else{
+
+            loadStream(
+            s.free
+            );
+
+        }
+
+    });
+
+    // ADMIN
+    if(
+        data.role ===
+        "admin"
+    ){
+
+        admin.style.display =
+        "block";
+
+        loadAdmin();
+
+        loadInputs();
+
     }
 
-    const data = (await getDoc(ref)).data();
-
-    planText.innerText = data.plan;
-    adminText.innerText = data.role === "admin" ? "Ja" : "Nein";
-
-    loadStream(data);
-
-    admin.style.display = data.role === "admin" ? "block" : "none";
 }
 
-// ADMIN
-async function loadAdmin() {
+// ADMIN USERLISTE
+async function loadAdmin(){
 
-    const users = await getDocs(collection(db, "users"));
+    const users =
+    await getDocs(
+        collection(
+            db,
+            "users"
+        )
+    );
 
     userList.innerHTML = "";
 
-    users.forEach(u => {
+    users.forEach((u)=>{
 
-        const d = u.data();
+        const d =
+        u.data();
 
-        const div = document.createElement("div");
+        const div =
+        document.createElement(
+        "div"
+        );
 
-        div.className = "card";
+        div.className =
+        "userCard";
 
         div.innerHTML = `
-        ${d.email}<br>
+
+        <b>
+        ${d.email}
+        </b>
+
+        <br>
+
+        Plan:
         ${d.plan}
 
-        <button onclick="setPlan('${u.id}','premium')">Premium</button>
-        <button onclick="setPlan('${u.id}','free')">Free</button>
+        <br>
+
+        Rolle:
+        ${d.role}
+
+        <br>
+
+        <button
+        onclick="
+        setPlan(
+        '${u.id}',
+        'premium'
+        )
+        ">
+        Premium
+        </button>
+
+        <button
+        onclick="
+        setPlan(
+        '${u.id}',
+        'free'
+        )
+        ">
+        Free
+        </button>
+
         `;
 
-        userList.appendChild(div);
+        userList.appendChild(
+        div
+        );
+
     });
+
 }
 
-window.setPlan = async (id, plan) => {
-    await updateDoc(doc(db,"users",id),{plan});
+// PLAN ÄNDERN
+window.setPlan =
+async function(uid,plan){
+
+    await updateDoc(
+
+        doc(
+            db,
+            "users",
+            uid
+        ),
+
+        {
+            plan
+        }
+
+    );
+
     loadAdmin();
+
 };
 
-window.updateStream = async () => {
-    await updateDoc(doc(db,"config","stream"),{
-        free: freeStream.value,
-        premium: premiumStream.value
-    });
-    alert("gespeichert");
+// STREAM ÄNDERN
+window.updateStream =
+async function(){
+
+    await updateDoc(
+
+        doc(
+            db,
+            "config",
+            "stream"
+        ),
+
+        {
+
+            free:
+            freeStream.value,
+
+            premium:
+            premiumStream.value
+
+        }
+
+    );
+
+    alert(
+    "Gespeichert"
+    );
+
 };
 
-// AUTH
-onAuthStateChanged(auth, user => {
+// INPUTS LADEN
+async function loadInputs(){
 
-    if (!user) {
-        ad.style.display = "block";
-        admin.style.display = "none";
-        loadStream({plan:"free"});
+    const ref =
+    doc(
+        db,
+        "config",
+        "stream"
+    );
+
+    const snap =
+    await getDoc(ref);
+
+    // NICHT EXISTIERT
+    if(!snap.exists()){
+
+        await setDoc(ref,{
+
+            free:"",
+            premium:""
+
+        });
+
         return;
     }
 
-    ad.style.display = "none";
-    handleUser(user);
-});
+    const d =
+    snap.data();
 
-// IMPRESSUM
-window.openImpressum = () => impressum.style.display = "flex";
-window.closeImpressum = () => impressum.style.display = "none";
+    freeStream.value =
+    d.free || "";
+
+    premiumStream.value =
+    d.premium || "";
+
+}
+
+// AUTH
+onAuthStateChanged(
+auth,
+(user)=>{
+
+    // NICHT EINGELOGGT
+    if(!user){
+
+        player.innerHTML = `
+
+        <div id="loginRequired">
+
+        <h2>
+        🔒 Login erforderlich
+        </h2>
+
+        <p>
+        Bitte mit dem Schul-Microsoftkonto anmelden.
+        </p>
+
+        <button onclick="
+        microsoftLogin()
+        ">
+        Mit Microsoft anmelden
+        </button>
+
+        </div>
+
+        `;
+
+        planText.innerText = "-";
+        adminText.innerText = "-";
+
+        admin.style.display = "none";
+
+        logoutBtn.style.display = "none";
+
+        return;
+    }
+
+    // USER
+    handleUser(user);
+
+});
 
 </script>
 
