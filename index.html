@@ -207,6 +207,8 @@ OHG-TV
 
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
 <script type="module">
 
 // FIREBASE IMPORTS
@@ -466,7 +468,7 @@ async function handleUser(user){
 
     onSnapshot(
     streamRef,
-    (streamSnap)=>{
+    async (streamSnap)=>{{
 
         const s =
         streamSnap.data();
