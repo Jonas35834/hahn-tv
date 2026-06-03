@@ -472,25 +472,78 @@ async function handleUser(user){
         streamSnap.data();
 
         // PREMIUM
-        if(
-            data.plan ===
-            "premium"
-        ){
+// PREMIUM
+if(
+    data.plan ===
+    "premium"
+){
 
-            loadStream(
-            s.premium
+    try{
+
+        const idToken =
+        await user.getIdToken();
+
+        const response =
+        await fetch(
+            "https://api.ohg-tv.de/api/token",
+            {
+                headers:{
+                    Authorization:
+                    `Bearer ${idToken}`
+                }
+            }
+        );
+
+        if(!response.ok){
+
+            throw new Error(
+                "Kein Premium-Zugriff"
             );
 
         }
 
-        // FREE
-        else{
+        const tokenData =
+        await response.json();
 
-            loadStream(
-            s.free
-            );
+        const premiumUrl =
+        s.premium +
+        "?token=" +
+        encodeURIComponent(
+            tokenData.token
+        );
 
-        }
+        loadStream(
+            premiumUrl
+        );
+
+    }catch(e){
+
+        console.error(e);
+
+        player.innerHTML = `
+
+        <h2>
+        🔒 Premium erforderlich
+        </h2>
+
+        <p>
+        Kein Zugriff auf den Premium-Stream.
+        </p>
+
+        `;
+
+    }
+
+}
+
+// FREE
+else{
+
+    loadStream(
+    s.free
+    );
+
+}
 
     });
 
