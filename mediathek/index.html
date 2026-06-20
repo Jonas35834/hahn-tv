@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mediathek</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #0f172a;
+    color: white;
+}
+
+.app {
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+}
+
+.video {
+    padding: 12px;
+    margin: 10px 0;
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+video {
+    width: 100%;
+    margin-top: 20px;
+    border-radius: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<h1>🎬 Mediathek</h1>
+
+<div id="videos">Lade...</div>
+
+<video id="player" controls></video>
+
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
+    authDomain: "ohg-tv.firebaseapp.com",
+    projectId: "ohg-tv"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+async function loadVideos(user) {
+
+    const token = await user.getIdToken();
+
+    const res = await fetch("https://api.ohg-tv.de/api/videos", {
+        headers: {
+            Authorization: "Bearer " + token
+        }
+    });
+
+    const videos = await res.json();
+
+    const div = document.getElementById("videos");
+    div.innerHTML = "";
+
+    videos.forEach(v => {
+
+        const el = document.createElement("div");
+        el.className = "video";
+        el.innerText = v.title;
+
+        el.onclick = () => {
+            document.getElementById("player").src = v.url;
+        };
+
+        div.appendChild(el);
+
+    });
+
+}
+
+onAuthStateChanged(auth, (user) => {
+    if (user) loadVideos(user);
+});
+
+</script>
+
+</body>
+</html>
