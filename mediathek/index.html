@@ -47,6 +47,17 @@ video {
 
 </div>
 
+<div>
+  <h2>📤 Upload (Admin)</h2>
+
+  <input type="text" id="title" placeholder="Titel">
+  <input type="file" id="file">
+
+  <button onclick="uploadVideo()">Upload</button>
+
+  <p id="status"></p>
+</div>
+    
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
