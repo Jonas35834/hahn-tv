@@ -103,6 +103,47 @@ async function loadVideos(user) {
 
 }
 
+async function uploadVideo() {
+
+    const user = auth.currentUser;
+    if (!user) {
+        alert("Nicht eingeloggt");
+        return;
+    }
+
+    const file = document.getElementById("file").files[0];
+    const title = document.getElementById("title").value;
+
+    if (!file) {
+        alert("Keine Datei ausgewählt");
+        return;
+    }
+
+    const token = await user.getIdToken();
+
+    const formData = new FormData();
+    formData.append("video", file);   // WICHTIG
+    formData.append("title", title);
+
+    const res = await fetch("https://api.ohg-tv.de/api/upload", {
+        method: "POST",
+        headers: {
+            Authorization: "Bearer " + token
+        },
+        body: formData
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+        console.error(data);
+        alert("Upload Fehler: " + data.error);
+    } else {
+        alert("Upload erfolgreich!");
+        console.log(data);
+    }
+}
+
 onAuthStateChanged(auth, (user) => {
     if (user) loadVideos(user);
 });
