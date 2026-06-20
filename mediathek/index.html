@@ -32,6 +32,12 @@ video {
     margin-top: 20px;
     border-radius: 10px;
 }
+
+.upload {
+    max-width: 900px;
+    margin: auto;
+    padding: 20px;
+}
 </style>
 </head>
 
@@ -47,17 +53,17 @@ video {
 
 </div>
 
-<div>
+<div class="upload">
   <h2>📤 Upload</h2>
 
 <input type="text" id="title" placeholder="Titel"><br><br>
 <input type="file" id="file"><br><br>
 
-<button onclick="uploadVideo()">Upload starten</button>
+<button id="uploadBtn">Upload starten</button>
 
 <p id="status"></p>
 </div>
-    
+
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -103,7 +109,7 @@ async function loadVideos(user) {
 
 }
 
-async function uploadVideo() {
+window.uploadVideo = async function () {
 
     const user = auth.currentUser;
     if (!user) {
@@ -113,16 +119,19 @@ async function uploadVideo() {
 
     const file = document.getElementById("file").files[0];
     const title = document.getElementById("title").value;
+    const status = document.getElementById("status");
 
     if (!file) {
         alert("Keine Datei ausgewählt");
         return;
     }
 
+    status.innerText = "⏳ Upload läuft...";
+
     const token = await user.getIdToken();
 
     const formData = new FormData();
-    formData.append("video", file);   // WICHTIG
+    formData.append("video", file);
     formData.append("title", title);
 
     const res = await fetch("https://api.ohg-tv.de/api/upload", {
@@ -136,13 +145,18 @@ async function uploadVideo() {
     const data = await res.json();
 
     if (data.error) {
+        status.innerText = "❌ " + data.error;
         console.error(data);
-        alert("Upload Fehler: " + data.error);
     } else {
-        alert("Upload erfolgreich!");
+        status.innerText = "✅ Upload erfolgreich!";
         console.log(data);
+
+        // reload videos
+        loadVideos(user);
     }
-}
+};
+
+document.getElementById("uploadBtn").addEventListener("click", uploadVideo);
 
 onAuthStateChanged(auth, (user) => {
     if (user) loadVideos(user);
