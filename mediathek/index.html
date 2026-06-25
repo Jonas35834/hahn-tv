@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OHG-TV Mediathek</title>
 
+<button onclick="goBack()" style="margin-bottom:15px;">
+⬅️ Zurück zur Hauptseite
+</button>
+    
 <style>
 body {
     margin: 0;
@@ -197,6 +201,10 @@ window.uploadVideo = async function () {
     }
 };
 
+window.goBack = function () {
+    window.location.href = "/";
+};
+    
 // ---------------- AUTH ----------------
 onAuthStateChanged(auth, (user) => {
 
