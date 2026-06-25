@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mediathek</title>
+<title>OHG-TV Mediathek</title>
 
 <style>
 body {
@@ -19,24 +19,64 @@ body {
     padding: 20px;
 }
 
+h1 {
+    text-align: center;
+}
+
 .video {
     padding: 12px;
     margin: 10px 0;
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.08);
     border-radius: 10px;
     cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.video:hover {
+    background: rgba(255,255,255,0.15);
 }
 
 video {
     width: 100%;
     margin-top: 20px;
     border-radius: 10px;
+    background: black;
 }
 
 .upload {
     max-width: 900px;
     margin: auto;
     padding: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+    margin-top: 20px;
+}
+
+input, button {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 8px;
+    border: none;
+}
+
+button {
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+.deleteBtn {
+    width: auto;
+    padding: 6px 10px;
+    background: red;
+    font-size: 12px;
 }
 </style>
 </head>
@@ -54,12 +94,12 @@ video {
 </div>
 
 <div class="upload">
-  <h2>📤 Upload</h2>
+<h2>📤 Upload</h2>
 
-<input type="text" id="title" placeholder="Titel"><br><br>
-<input type="file" id="file"><br><br>
+<input type="text" id="title" placeholder="Titel">
+<input type="file" id="file">
 
-<button id="uploadBtn">Upload starten</button>
+<button onclick="uploadVideo()">Upload starten</button>
 
 <p id="status"></p>
 </div>
@@ -78,6 +118,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+let currentUser = null;
+
+// ---------------- LOAD VIDEOS ----------------
 async function loadVideos(user) {
 
     const token = await user.getIdToken();
@@ -97,18 +140,20 @@ async function loadVideos(user) {
 
         const el = document.createElement("div");
         el.className = "video";
-        el.innerText = v.title;
+
+        el.innerHTML = `
+            <span>🎥 ${v.title}</span>
+        `;
 
         el.onclick = () => {
             document.getElementById("player").src = v.url;
         };
 
         div.appendChild(el);
-
     });
-
 }
 
+// ---------------- UPLOAD ----------------
 window.uploadVideo = async function () {
 
     const user = auth.currentUser;
@@ -146,20 +191,22 @@ window.uploadVideo = async function () {
 
     if (data.error) {
         status.innerText = "❌ " + data.error;
-        console.error(data);
     } else {
         status.innerText = "✅ Upload erfolgreich!";
-        console.log(data);
-
-        // reload videos
         loadVideos(user);
     }
 };
 
-document.getElementById("uploadBtn").addEventListener("click", uploadVideo);
-
+// ---------------- AUTH ----------------
 onAuthStateChanged(auth, (user) => {
-    if (user) loadVideos(user);
+
+    if (!user) {
+        document.getElementById("videos").innerHTML = "Bitte einloggen";
+        return;
+    }
+
+    currentUser = user;
+    loadVideos(user);
 });
 
 </script>
