@@ -7,6 +7,10 @@
 
 <title>OHG-TV</title>
 
+<button onclick="openMediathek()" style="margin-top:20px;">
+🎬 Mediathek öffnen
+</button>
+    
 <style>
 
 body{
@@ -729,6 +733,10 @@ async function loadInputs(){
 
 }
 
+window.openMediathek = function () {
+    window.location.href = "/mediathek/";
+};
+    
 // AUTH
 onAuthStateChanged(
 auth,
