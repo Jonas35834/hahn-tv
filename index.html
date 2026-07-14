@@ -7,10 +7,6 @@
 
 <title>OHG-TV</title>
 
-<button onclick="openMediathek()" style="margin-top:20px;">
-🎬 Mediathek öffnen
-</button>
-    
 <style>
 
 body{
@@ -58,6 +54,7 @@ input{
     border:none;
     border-radius:12px;
     margin-top:10px;
+    box-sizing:border-box;
 }
 
 iframe,
@@ -92,6 +89,23 @@ video{
     margin-top:10px;
 }
 
+.divider{
+    margin:20px 0;
+    opacity:0.6;
+}
+
+.error{
+    color:#f87171;
+    margin-top:10px;
+}
+
+.linkBtn{
+    background:none;
+    color:#93c5fd;
+    text-decoration:underline;
+    padding:5px;
+}
+
 footer{
     margin-top:40px;
     padding:20px;
@@ -112,6 +126,12 @@ footer{
 Schulfernsehen • Live • 24/7
 </p>
 
+<div style="text-align:center;">
+<button onclick="openMediathek()" style="margin-top:20px;">
+🎬 Mediathek öffnen
+</button>
+</div>
+
 <!-- PLAYER -->
 <div class="card">
 
@@ -124,12 +144,23 @@ Schulfernsehen • Live • 24/7
 </h2>
 
 <p>
-Bitte mit dem Schul-Microsoftkonto anmelden.
+Bitte mit dem Schul-Microsoftkonto oder per E-Mail anmelden.
 </p>
 
 <button onclick="microsoftLogin()">
 Mit Microsoft anmelden
 </button>
+
+<div class="divider">— oder —</div>
+
+<input id="emailInput" type="email" placeholder="E-Mail" autocomplete="username">
+<input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
+
+<button onclick="emailLogin()">
+Mit E-Mail anmelden
+</button>
+
+<div id="authError" class="error"></div>
 
 </div>
 
@@ -201,6 +232,26 @@ Speichern
 👥 Benutzer
 </h3>
 
+<div class="userCard">
+
+<b>➕ Neuen Nutzer anlegen</b>
+
+<input id="newUserEmail" type="email" placeholder="E-Mail" autocomplete="off">
+<input id="newUserPassword" type="password" placeholder="Passwort" autocomplete="new-password">
+
+<select id="newUserPlan" style="width:100%;padding:12px;border-radius:12px;margin-top:10px;">
+<option value="free">Free</option>
+<option value="premium">Premium</option>
+</select>
+
+<button onclick="adminCreateUser()">
+Nutzer anlegen
+</button>
+
+<div id="createUserStatus" class="error"></div>
+
+</div>
+
 <div id="userList"></div>
 
 </div>
@@ -212,27 +263,33 @@ OHG-TV
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    
+
 <script type="module">
 
-// FIREBASE IMPORTS
-import {
-initializeApp
-}
-from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+(async () => {
 
-import {
+try{
+
+// FIREBASE IMPORTS
+const {
+initializeApp
+} = await import(
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"
+);
+
+const {
 getAuth,
 signInWithPopup,
 OAuthProvider,
 signOut,
-onAuthStateChanged
-}
-from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+onAuthStateChanged,
+signInWithEmailAndPassword,
+createUserWithEmailAndPassword
+} = await import(
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+);
 
-import {
+const {
 getFirestore,
 doc,
 getDoc,
@@ -242,9 +299,9 @@ collection,
 getDocs,
 onSnapshot,
 increment
-}
-from
-"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+} = await import(
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+);
 
 // FIREBASE CONFIG
 const firebaseConfig = {
@@ -270,9 +327,59 @@ const auth = getAuth(app);
 
 const db = getFirestore(app);
 
+// ZWEITE FIREBASE-APP-INSTANZ
+// (wird benutzt, um im Adminbereich neue Nutzer anzulegen,
+// ohne dass dabei die Admin-Sitzung überschrieben/ausgeloggt wird)
+const secondaryApp = initializeApp(firebaseConfig, "Secondary");
+
+const secondaryAuth = getAuth(secondaryApp);
+
+// SCHUL-DOMAIN, die für Registrierung/Login erlaubt ist
+const ALLOWED_DOMAIN = "@ohgnagold.onmicrosoft.com";
+
+// HILFSFUNKTION: FEHLERTEXT ANZEIGEN
+function showAuthError(msg){
+
+    const el = document.getElementById("authError");
+
+    if(el) el.innerText = msg;
+
+}
+
+// USER-EINTRAG ERSTELLEN, FALLS NICHT VORHANDEN
+async function ensureUserDoc(user){
+
+    const ref =
+    doc(
+        db,
+        "users",
+        user.uid
+    );
+
+    const snap =
+    await getDoc(ref);
+
+    if(!snap.exists()){
+
+        await setDoc(ref,{
+
+            email:user.email,
+
+            plan:"free",
+
+            role:"user"
+
+        });
+
+    }
+
+}
+
 // MICROSOFT LOGIN
 window.microsoftLogin =
 async function(){
+
+    showAuthError("");
 
     const provider =
     new OAuthProvider(
@@ -301,7 +408,7 @@ async function(){
         // NUR SCHULMAILS
         if(
             !user.email.endsWith(
-            "@ohgnagold.onmicrosoft.com"
+            ALLOWED_DOMAIN
             )
         ){
 
@@ -314,31 +421,7 @@ async function(){
             return;
         }
 
-        // USER DB
-        const ref =
-        doc(
-            db,
-            "users",
-            user.uid
-        );
-
-        const snap =
-        await getDoc(ref);
-
-        // USER ERSTELLEN
-        if(!snap.exists()){
-
-            await setDoc(ref,{
-
-                email:user.email,
-
-                plan:"free",
-
-                role:"user"
-
-            });
-
-        }
+        await ensureUserDoc(user);
 
     }catch(e){
 
@@ -347,6 +430,84 @@ async function(){
     }
 
 };
+
+// EMAIL/PASSWORT LOGIN
+window.emailLogin =
+async function(){
+
+    showAuthError("");
+
+    const email =
+    document.getElementById(
+    "emailInput"
+    ).value.trim();
+
+    const password =
+    document.getElementById(
+    "passwordInput"
+    ).value;
+
+    if(!email || !password){
+
+        showAuthError(
+        "Bitte E-Mail und Passwort eingeben."
+        );
+
+        return;
+
+    }
+
+    try{
+
+        const result =
+        await signInWithEmailAndPassword(
+            auth,
+            email,
+            password
+        );
+
+        await ensureUserDoc(
+        result.user
+        );
+
+    }catch(e){
+
+        showAuthError(
+        translateAuthError(e)
+        );
+
+    }
+
+};
+
+// FIREBASE FEHLERCODES INS DEUTSCHE ÜBERSETZEN
+function translateAuthError(e){
+
+    const code = e.code || "";
+
+    if(code.includes("wrong-password") || code.includes("invalid-credential")){
+        return "Falsches Passwort oder E-Mail.";
+    }
+
+    if(code.includes("user-not-found")){
+        return "Kein Konto mit dieser E-Mail gefunden.";
+    }
+
+    if(code.includes("email-already-in-use")){
+        return "Diese E-Mail ist bereits registriert.";
+    }
+
+    if(code.includes("invalid-email")){
+        return "Ungültige E-Mail-Adresse.";
+    }
+
+    if(code.includes("weak-password")){
+        return "Passwort ist zu schwach (mind. 6 Zeichen).";
+    }
+
+    return e.message;
+
+}
 
 // LOGOUT
 window.logout =
@@ -478,7 +639,6 @@ async function handleUser(user){
         streamSnap.data();
 
         // PREMIUM
-// PREMIUM
 if(
     data.plan ===
     "premium"
@@ -644,6 +804,110 @@ async function loadAdmin(){
 
 }
 
+// NEUEN NUTZER ANLEGEN (NUR ADMIN)
+window.adminCreateUser =
+async function(){
+
+    const statusEl =
+    document.getElementById(
+    "createUserStatus"
+    );
+
+    statusEl.innerText = "";
+
+    const email =
+    document.getElementById(
+    "newUserEmail"
+    ).value.trim();
+
+    const password =
+    document.getElementById(
+    "newUserPassword"
+    ).value;
+
+    const plan =
+    document.getElementById(
+    "newUserPlan"
+    ).value;
+
+    if(!email || !password){
+
+        statusEl.innerText =
+        "Bitte E-Mail und Passwort eingeben.";
+
+        return;
+
+    }
+
+    if(password.length < 6){
+
+        statusEl.innerText =
+        "Passwort muss mindestens 6 Zeichen lang sein.";
+
+        return;
+
+    }
+
+    try{
+
+        // NUTZER ÜBER ZWEITE APP-INSTANZ ANLEGEN,
+        // DAMIT DIE ADMIN-SITZUNG ERHALTEN BLEIBT
+        const result =
+        await createUserWithEmailAndPassword(
+            secondaryAuth,
+            email,
+            password
+        );
+
+        await setDoc(
+
+            doc(
+                db,
+                "users",
+                result.user.uid
+            ),
+
+            {
+
+                email:email,
+
+                plan:plan,
+
+                role:"user"
+
+            }
+
+        );
+
+        // AUS DER ZWEITEN APP WIEDER AUSLOGGEN
+        await signOut(secondaryAuth);
+
+        document.getElementById(
+        "newUserEmail"
+        ).value = "";
+
+        document.getElementById(
+        "newUserPassword"
+        ).value = "";
+
+        statusEl.style.color = "#4ade80";
+
+        statusEl.innerText =
+        "Nutzer wurde angelegt.";
+
+        loadAdmin();
+
+    }catch(e){
+
+        statusEl.style.color = "#f87171";
+
+        statusEl.innerText =
+        translateAuthError(e);
+
+    }
+
+};
+
 // PLAN ÄNDERN
 window.setPlan =
 async function(uid,plan){
@@ -736,7 +1000,7 @@ async function loadInputs(){
 window.openMediathek = function () {
     window.location.href = "/mediathek/";
 };
-    
+
 // AUTH
 onAuthStateChanged(
 auth,
@@ -754,7 +1018,7 @@ auth,
         </h2>
 
         <p>
-        Bitte mit dem Schul-Microsoftkonto anmelden.
+        Bitte mit dem Schul-Microsoftkonto oder per E-Mail anmelden.
         </p>
 
         <button onclick="
@@ -762,6 +1026,17 @@ auth,
         ">
         Mit Microsoft anmelden
         </button>
+
+        <div class="divider">— oder —</div>
+
+        <input id="emailInput" type="email" placeholder="E-Mail" autocomplete="username">
+        <input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
+
+        <button onclick="emailLogin()">
+        Mit E-Mail anmelden
+        </button>
+
+        <div id="authError" class="error"></div>
 
         </div>
 
@@ -781,6 +1056,44 @@ auth,
     handleUser(user);
 
 });
+
+}catch(e){
+
+    // WIRD AUSGELÖST, WENN Z.B. DIE FIREBASE-SCRIPTE
+    // NICHT GELADEN WERDEN KONNTEN (NETZWERK/CORS)
+    // ODER DIE INITIALISIERUNG FEHLSCHLÄGT.
+    // OHNE DIESEN FANG BRECHEN SONST ALLE onclick-HANDLER
+    // MIT KRYPTISCHEN "ReferenceError: xyz is not defined" AB.
+
+    console.error("OHG-TV Ladefehler:", e);
+
+    const loginBox =
+    document.getElementById(
+    "loginRequired"
+    );
+
+    if(loginBox){
+
+        loginBox.innerHTML = `
+
+        <h2>⚠️ Fehler beim Laden</h2>
+
+        <p>
+        Die Seite konnte nicht vollständig geladen werden.
+        bitte Kontaktieren sie support@ohg-tv.de.
+        </p>
+
+        <p style="opacity:0.7;font-size:0.9em;">
+        ${e.message || e}
+        </p>
+
+        `;
+
+    }
+
+}
+
+})();
 
 </script>
 
