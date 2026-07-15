@@ -65,10 +65,6 @@ video{
     background:black;
 }
 
-#admin{
-    display:none;
-}
-
 #status{
     margin-top:10px;
     opacity:0.8;
@@ -79,13 +75,6 @@ video{
 }
 
 #viewer{
-    margin-top:10px;
-}
-
-.userCard{
-    background:rgba(255,255,255,0.05);
-    padding:10px;
-    border-radius:12px;
     margin-top:10px;
 }
 
@@ -125,12 +114,6 @@ footer{
 <p>
 Schulfernsehen • Live • 24/7
 </p>
-
-<div style="text-align:center;">
-<button onclick="openMediathek()" style="margin-top:20px;">
-🎬 Mediathek öffnen
-</button>
-</div>
 
 <!-- PLAYER -->
 <div class="card">
@@ -203,59 +186,6 @@ Logout
 
 </div>
 
-<!-- ADMIN -->
-<div id="admin" class="card">
-
-<h2>
-👨‍💼 Adminpanel
-</h2>
-
-<h3>
-🎥 Streams
-</h3>
-
-<input
-id="freeStream"
-placeholder="Free Stream URL"
->
-
-<input
-id="premiumStream"
-placeholder="Premium Stream URL"
->
-
-<button onclick="updateStream()">
-Speichern
-</button>
-
-<h3>
-👥 Benutzer
-</h3>
-
-<div class="userCard">
-
-<b>➕ Neuen Nutzer anlegen</b>
-
-<input id="newUserEmail" type="email" placeholder="E-Mail" autocomplete="off">
-<input id="newUserPassword" type="password" placeholder="Passwort" autocomplete="new-password">
-
-<select id="newUserPlan" style="width:100%;padding:12px;border-radius:12px;margin-top:10px;">
-<option value="free">Free</option>
-<option value="premium">Premium</option>
-</select>
-
-<button onclick="adminCreateUser()">
-Nutzer anlegen
-</button>
-
-<div id="createUserStatus" class="error"></div>
-
-</div>
-
-<div id="userList"></div>
-
-</div>
-
 <footer>
 OHG-TV
 </footer>
@@ -283,8 +213,7 @@ signInWithPopup,
 OAuthProvider,
 signOut,
 onAuthStateChanged,
-signInWithEmailAndPassword,
-createUserWithEmailAndPassword
+signInWithEmailAndPassword
 } = await import(
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
 );
@@ -294,11 +223,7 @@ getFirestore,
 doc,
 getDoc,
 setDoc,
-updateDoc,
-collection,
-getDocs,
-onSnapshot,
-increment
+onSnapshot
 } = await import(
 "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
 );
@@ -327,14 +252,7 @@ const auth = getAuth(app);
 
 const db = getFirestore(app);
 
-// ZWEITE FIREBASE-APP-INSTANZ
-// (wird benutzt, um im Adminbereich neue Nutzer anzulegen,
-// ohne dass dabei die Admin-Sitzung überschrieben/ausgeloggt wird)
-const secondaryApp = initializeApp(firebaseConfig, "Secondary");
-
-const secondaryAuth = getAuth(secondaryApp);
-
-// SCHUL-DOMAIN, die für Registrierung/Login erlaubt ist
+// SCHUL-DOMAIN, die für den Microsoft-Login erlaubt ist
 const ALLOWED_DOMAIN = "@ohgnagold.onmicrosoft.com";
 
 // HILFSFUNKTION: FEHLERTEXT ANZEIGEN
@@ -493,16 +411,8 @@ function translateAuthError(e){
         return "Kein Konto mit dieser E-Mail gefunden.";
     }
 
-    if(code.includes("email-already-in-use")){
-        return "Diese E-Mail ist bereits registriert.";
-    }
-
     if(code.includes("invalid-email")){
         return "Ungültige E-Mail-Adresse.";
-    }
-
-    if(code.includes("weak-password")){
-        return "Passwort ist zu schwach (mind. 6 Zeichen).";
     }
 
     return e.message;
@@ -713,293 +623,7 @@ else{
 
     });
 
-    // ADMIN
-    if(
-        data.role ===
-        "admin"
-    ){
-
-        admin.style.display =
-        "block";
-
-        loadAdmin();
-
-        loadInputs();
-
-    }
-
 }
-
-// ADMIN USERLISTE
-async function loadAdmin(){
-
-    const users =
-    await getDocs(
-        collection(
-            db,
-            "users"
-        )
-    );
-
-    userList.innerHTML = "";
-
-    users.forEach((u)=>{
-
-        const d =
-        u.data();
-
-        const div =
-        document.createElement(
-        "div"
-        );
-
-        div.className =
-        "userCard";
-
-        div.innerHTML = `
-
-        <b>
-        ${d.email}
-        </b>
-
-        <br>
-
-        Plan:
-        ${d.plan}
-
-        <br>
-
-        Rolle:
-        ${d.role}
-
-        <br>
-
-        <button
-        onclick="
-        setPlan(
-        '${u.id}',
-        'premium'
-        )
-        ">
-        Premium
-        </button>
-
-        <button
-        onclick="
-        setPlan(
-        '${u.id}',
-        'free'
-        )
-        ">
-        Free
-        </button>
-
-        `;
-
-        userList.appendChild(
-        div
-        );
-
-    });
-
-}
-
-// NEUEN NUTZER ANLEGEN (NUR ADMIN)
-window.adminCreateUser =
-async function(){
-
-    const statusEl =
-    document.getElementById(
-    "createUserStatus"
-    );
-
-    statusEl.innerText = "";
-
-    const email =
-    document.getElementById(
-    "newUserEmail"
-    ).value.trim();
-
-    const password =
-    document.getElementById(
-    "newUserPassword"
-    ).value;
-
-    const plan =
-    document.getElementById(
-    "newUserPlan"
-    ).value;
-
-    if(!email || !password){
-
-        statusEl.innerText =
-        "Bitte E-Mail und Passwort eingeben.";
-
-        return;
-
-    }
-
-    if(password.length < 6){
-
-        statusEl.innerText =
-        "Passwort muss mindestens 6 Zeichen lang sein.";
-
-        return;
-
-    }
-
-    try{
-
-        // NUTZER ÜBER ZWEITE APP-INSTANZ ANLEGEN,
-        // DAMIT DIE ADMIN-SITZUNG ERHALTEN BLEIBT
-        const result =
-        await createUserWithEmailAndPassword(
-            secondaryAuth,
-            email,
-            password
-        );
-
-        await setDoc(
-
-            doc(
-                db,
-                "users",
-                result.user.uid
-            ),
-
-            {
-
-                email:email,
-
-                plan:plan,
-
-                role:"user"
-
-            }
-
-        );
-
-        // AUS DER ZWEITEN APP WIEDER AUSLOGGEN
-        await signOut(secondaryAuth);
-
-        document.getElementById(
-        "newUserEmail"
-        ).value = "";
-
-        document.getElementById(
-        "newUserPassword"
-        ).value = "";
-
-        statusEl.style.color = "#4ade80";
-
-        statusEl.innerText =
-        "Nutzer wurde angelegt.";
-
-        loadAdmin();
-
-    }catch(e){
-
-        statusEl.style.color = "#f87171";
-
-        statusEl.innerText =
-        translateAuthError(e);
-
-    }
-
-};
-
-// PLAN ÄNDERN
-window.setPlan =
-async function(uid,plan){
-
-    await updateDoc(
-
-        doc(
-            db,
-            "users",
-            uid
-        ),
-
-        {
-            plan
-        }
-
-    );
-
-    loadAdmin();
-
-};
-
-// STREAM ÄNDERN
-window.updateStream =
-async function(){
-
-    await updateDoc(
-
-        doc(
-            db,
-            "config",
-            "stream"
-        ),
-
-        {
-
-            free:
-            freeStream.value,
-
-            premium:
-            premiumStream.value
-
-        }
-
-    );
-
-    alert(
-    "Gespeichert"
-    );
-
-};
-
-// INPUTS LADEN
-async function loadInputs(){
-
-    const ref =
-    doc(
-        db,
-        "config",
-        "stream"
-    );
-
-    const snap =
-    await getDoc(ref);
-
-    // NICHT EXISTIERT
-    if(!snap.exists()){
-
-        await setDoc(ref,{
-
-            free:"",
-            premium:""
-
-        });
-
-        return;
-    }
-
-    const d =
-    snap.data();
-
-    freeStream.value =
-    d.free || "";
-
-    premiumStream.value =
-    d.premium || "";
-
-}
-
-window.openMediathek = function () {
-    window.location.href = "/mediathek/";
-};
 
 // AUTH
 onAuthStateChanged(
@@ -1045,8 +669,6 @@ auth,
         planText.innerText = "-";
         adminText.innerText = "-";
 
-        admin.style.display = "none";
-
         logoutBtn.style.display = "none";
 
         return;
@@ -1058,12 +680,6 @@ auth,
 });
 
 }catch(e){
-
-    // WIRD AUSGELÖST, WENN Z.B. DIE FIREBASE-SCRIPTE
-    // NICHT GELADEN WERDEN KONNTEN (NETZWERK/CORS)
-    // ODER DIE INITIALISIERUNG FEHLSCHLÄGT.
-    // OHNE DIESEN FANG BRECHEN SONST ALLE onclick-HANDLER
-    // MIT KRYPTISCHEN "ReferenceError: xyz is not defined" AB.
 
     console.error("OHG-TV Ladefehler:", e);
 
@@ -1080,7 +696,7 @@ auth,
 
         <p>
         Die Seite konnte nicht vollständig geladen werden.
-        bitte Kontaktieren sie support@ohg-tv.de.
+        Bitte kontaktieren sie support@ohg-tv.de.
         </p>
 
         <p style="opacity:0.7;font-size:0.9em;">
