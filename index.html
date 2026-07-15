@@ -55,6 +55,12 @@ input{
     border-radius:12px;
     margin-top:10px;
     box-sizing:border-box;
+    background:rgba(255, 255, 255, 0.1);
+    color:white;
+}
+
+input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
 }
 
 iframe,
@@ -243,334 +249,189 @@ onSnapshot
 
 // FIREBASE CONFIG
 const firebaseConfig = {
-
-apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
-
-authDomain: "ohg-tv.firebaseapp.com",
-
-projectId: "ohg-tv",
-
-storageBucket: "ohg-tv.firebasestorage.app",
-
-messagingSenderId: "700588840705",
-
-appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
-
+    apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
+    authDomain: "ohg-tv.firebaseapp.com",
+    projectId: "ohg-tv",
+    storageBucket: "ohg-tv.firebasestorage.app",
+    messagingSenderId: "700588840705",
+    appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
 };
 
 // INIT
 const app = initializeApp(firebaseConfig);
-
 const auth = getAuth(app);
-
 const db = getFirestore(app);
 
 // SCHUL-DOMAIN, die für den Microsoft-Login erlaubt ist
 const ALLOWED_DOMAIN = "@ohgnagold.onmicrosoft.com";
 
+let activeCheckInterval = null;
+
 // HILFSFUNKTION: FEHLERTEXT ANZEIGEN
 function showAuthError(msg){
-
     const el = document.getElementById("authError");
-
     if(el) el.innerText = msg;
-
 }
 
 // USER-EINTRAG ERSTELLEN, FALLS NICHT VORHANDEN
 async function ensureUserDoc(user){
-
-    const ref =
-    doc(
-        db,
-        "users",
-        user.uid
-    );
-
-    const snap =
-    await getDoc(ref);
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
 
     if(!snap.exists()){
-
         await setDoc(ref,{
-
-            email:user.email,
-
-            plan:"free",
-
-            role:"user",
-
+            email: user.email,
+            plan: "free",
+            role: "user",
             activeCode: null
-
         });
-
     }
-
 }
 
 // MICROSOFT LOGIN
-window.microsoftLogin =
-async function(){
-
+window.microsoftLogin = async function(){
     showAuthError("");
+    const provider = new OAuthProvider("microsoft.com");
 
-    const provider =
-    new OAuthProvider(
-    "microsoft.com"
-    );
-
-    // TENANT
     provider.setCustomParameters({
-
-        tenant:
-        "6e52e902-bb31-460e-b1b9-5b5bc2272acf"
-
+        tenant: "6e52e902-bb31-460e-b1b9-5b5bc2272acf"
     });
 
     try{
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
 
-        const result =
-        await signInWithPopup(
-            auth,
-            provider
-        );
-
-        const user =
-        result.user;
-
-        // NUR SCHULMAILS
-        if(
-            !user.email.endsWith(
-            ALLOWED_DOMAIN
-            )
-        ){
-
-            alert(
-            "Nur Schulaccounts erlaubt"
-            );
-
+        if(!user.email.endsWith(ALLOWED_DOMAIN)){
+            alert("Nur Schulaccounts erlaubt");
             await signOut(auth);
-
             return;
         }
 
         await ensureUserDoc(user);
-
     }catch(e){
-
         alert(e.message);
-
     }
-
 };
 
 // EMAIL/PASSWORT LOGIN
-window.emailLogin =
-async function(){
-
+window.emailLogin = async function(){
     showAuthError("");
-
-    const email =
-    document.getElementById(
-    "emailInput"
-    ).value.trim();
-
-    const password =
-    document.getElementById(
-    "passwordInput"
-    ).value;
+    const email = document.getElementById("emailInput").value.trim();
+    const password = document.getElementById("passwordInput").value;
 
     if(!email || !password){
-
-        showAuthError(
-            "Bitte E-Mail und Passwort eingeben."
-        );
-
+        showAuthError("Bitte E-Mail und Passwort eingeben.");
         return;
-
     }
 
     try{
-
-        const result =
-        await signInWithEmailAndPassword(
-            auth,
-            email,
-            password
-        );
-
-        await ensureUserDoc(
-        result.user
-        );
-
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        await ensureUserDoc(result.user);
     }catch(e){
-
-        showAuthError(
-        translateAuthError(e)
-        );
-
+        showAuthError(translateAuthError(e));
     }
-
 };
 
-// FIREBASE FEHLERCODES INS DEUTSCHE ÜBERSETZEN
 function translateAuthError(e){
-
     const code = e.code || "";
-
     if(code.includes("wrong-password") || code.includes("invalid-credential")){
         return "Falsches Passwort oder E-Mail.";
     }
-
     if(code.includes("user-not-found")){
         return "Kein Konto mit dieser E-Mail gefunden.";
     }
-
     if(code.includes("invalid-email")){
         return "Ungültige E-Mail-Adresse.";
     }
-
     return e.message;
-
 }
 
 // LOGOUT
-window.logout =
-function(){
-
+window.logout = function(){
+    if (activeCheckInterval) {
+        clearInterval(activeCheckInterval);
+    }
     signOut(auth);
-
 };
 
 // STREAM LADEN
 function loadStream(url){
-
-    // HLS
-    if(
-        url.includes(".m3u8")
-    ){
-
+    if(url.includes(".m3u8")){
         player.innerHTML = `
-
-        <video
-        id="video"
-        controls
-        autoplay
-        playsinline>
-        </video>
-
-        <script src="
-        https://cdn.jsdelivr.net/npm/hls.js@latest
-        "><\/script>
-
+        <video id="video" controls autoplay playsinline></video>
         `;
 
         setTimeout(()=>{
-
-            const video =
-            document.getElementById(
-            "video"
-            );
-
+            const video = document.getElementById("video");
             if(Hls.isSupported()){
-
-                const hls =
-                new Hls();
-
-                hls.loadSource(
-                url
-                );
-
-                hls.attachMedia(
-                video
-                );
-
+                const hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
             }else{
-
                 video.src = url;
-
             }
-
         },100);
-
-    }
-
-    // YOUTUBE
-    else{
-
+    }else{
         player.innerHTML = `
-
-        <iframe
-
-        src="${url}"
-
-        allowfullscreen
-
-        style="
-        height:500px;
-        "
-
-        >
-
-        </iframe>
-
+        <iframe src="${url}" allowfullscreen style="height:500px;"></iframe>
         `;
-
     }
-
 }
 
-// USER
+// USER-LOGIK & ECHTZEIT-ABLAUFPRÜFUNG
 async function handleUser(user){
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+    const data = snap.data();
 
-    const ref =
-    doc(
-        db,
-        "users",
-        user.uid
-    );
+    // Falls ein alter Interval-Timer läuft, löschen wir ihn zuerst
+    if (activeCheckInterval) {
+        clearInterval(activeCheckInterval);
+    }
 
-    const snap =
-    await getDoc(ref);
-
-    const data =
-    snap.data();
-
-    // --- CODESYSTEM ABLAUFPRÜFUNG ---
+    // --- AKTIVE ECHTZEIT-ABLAUFPRÜFUNG ---
     if (data.plan === "premium" && data.activeCode) {
-        const codeRef = doc(db, "activation_codes", data.activeCode);
-        const codeSnap = await getDoc(codeRef);
-
-        if (codeSnap.exists()) {
-            const codeData = codeSnap.data();
-            if (codeData.expiresAt && new Date() > codeData.expiresAt.toDate()) {
-                await updateDoc(ref, { plan: "free", activeCode: null });
-                await deleteDoc(codeRef);
+        // Prüft den Code sofort und danach alle 10 Sekunden
+        activeCheckInterval = setInterval(async () => {
+            const currentSnap = await getDoc(ref);
+            if (!currentSnap.exists()) return;
+            
+            const currentUserData = currentSnap.data();
+            
+            // Falls der Status im Hintergrund auf Free gesetzt wurde
+            if (currentUserData.plan !== "premium") {
+                clearInterval(activeCheckInterval);
                 alert("Dein Premium-Zugang ist abgelaufen.");
                 location.reload();
                 return;
             }
-        } else {
-            await updateDoc(ref, { plan: "free", activeCode: null });
-            alert("Dein Premium-Zugang ist abgelaufen.");
-            location.reload();
-            return;
-        }
+
+            const codeRef = doc(db, "activation_codes", currentUserData.activeCode);
+            const codeSnap = await getDoc(codeRef);
+
+            if (codeSnap.exists()) {
+                const codeData = codeSnap.data();
+                if (codeData.expiresAt && new Date() > codeData.expiresAt.toDate()) {
+                    clearInterval(activeCheckInterval);
+                    await updateDoc(ref, { plan: "free", activeCode: null });
+                    await deleteDoc(codeRef);
+                    alert("Dein Premium-Zugang ist abgelaufen.");
+                    location.reload();
+                }
+            } else {
+                clearInterval(activeCheckInterval);
+                await updateDoc(ref, { plan: "free", activeCode: null });
+                alert("Dein Premium-Zugang ist abgelaufen.");
+                location.reload();
+            }
+        }, 10000); 
     }
 
-    // STATUS
-    planText.innerText =
-    data.plan;
+    // STATUS IM UI AKTUALISIEREN
+    planText.innerText = data.plan;
+    adminText.innerText = data.role === "admin" ? "Ja" : "Nein";
+    logoutBtn.style.display = "inline-block";
 
-    adminText.innerText =
-    data.role === "admin"
-    ? "Ja"
-    : "Nein";
-
-    logoutBtn.style.display =
-    "inline-block";
-
-    // Aktivierungs-Karte ein- oder ausblenden
     const actCard = document.getElementById("activationCard");
     if (data.plan === "free") {
         actCard.style.display = "block";
@@ -579,98 +440,39 @@ async function handleUser(user){
     }
 
     // STREAM CONFIG
-    const streamRef =
-    doc(
-        db,
-        "config",
-        "stream"
-    );
+    const streamRef = doc(db, "config", "stream");
 
-    onSnapshot(
-    streamRef,
-    async (streamSnap)=>{
+    onSnapshot(streamRef, async (streamSnap)=>{
+        const s = streamSnap.data();
 
-        const s =
-        streamSnap.data();
+        if(data.plan === "premium"){
+            try{
+                const idToken = await user.getIdToken();
+                const response = await fetch("https://api.ohg-tv.de/api/token", {
+                    headers: { Authorization: `Bearer ${idToken}` }
+                });
 
-        // PREMIUM
-if(
-    data.plan ===
-    "premium"
-){
-
-    try{
-
-        const idToken =
-        await user.getIdToken();
-
-        const response =
-        await fetch(
-            "https://api.ohg-tv.de/api/token",
-            {
-                headers:{
-                    Authorization:
-                    `Bearer ${idToken}`
+                if(!response.ok){
+                    throw new Error("Kein Premium-Zugriff");
                 }
+
+                const tokenData = await response.json();
+                const premiumUrl = s.premium + "?token=" + encodeURIComponent(tokenData.token);
+                loadStream(premiumUrl);
+            }catch(e){
+                console.error(e);
+                player.innerHTML = `
+                <h2>🔒 Premium erforderlich</h2>
+                <p>Kein Zugriff auf den Premium-Stream.</p>
+                `;
             }
-        );
-
-        if(!response.ok){
-
-            throw new Error(
-                "Kein Premium-Zugriff"
-            );
-
+        }else{
+            loadStream(s.free);
         }
-
-        const tokenData =
-        await response.json();
-
-        const premiumUrl =
-        s.premium +
-        "?token=" +
-        encodeURIComponent(
-            tokenData.token
-        );
-
-        loadStream(
-            premiumUrl
-        );
-
-    }catch(e){
-
-        console.error(e);
-
-        player.innerHTML = `
-
-        <h2>
-        🔒 Premium erforderlich
-        </h2>
-
-        <p>
-        Kein Zugriff auf den Premium-Stream.
-        </p>
-
-        `;
-
-    }
-
-}
-
-// FREE
-else{
-
-    loadStream(
-    s.free
-    );
-
-}
-
     });
-
 }
 
-// CODE AKTIVIEREN
+// CODE EINLÖSEN
 window.activateCode = async function() {
     const statusEl = document.getElementById("activationStatus");
     statusEl.innerText = "";
@@ -694,7 +496,7 @@ window.activateCode = async function() {
         const codeData = codeSnap.data();
         const now = new Date();
 
-        // Fall A: Bereits aktiviertes Zeitfenster läuft
+        // Fall A: Code wurde bereits aktiviert und läuft
         if (codeData.expiresAt) {
             const expirationDate = codeData.expiresAt.toDate();
 
@@ -739,89 +541,46 @@ async function upgradeUserToPremium(codeText) {
     setTimeout(() => { location.reload(); }, 1500);
 }
 
-// AUTH
-onAuthStateChanged(
-auth,
-(user)=>{
-
-    // NICHT EINGELOGGT
+// AUTH-BEOBACHTER
+onAuthStateChanged(auth, (user)=>{
     if(!user){
-
         player.innerHTML = `
-
         <div id="loginRequired">
-
-        <h2>
-        🔒 Login erforderlich
-        </h2>
-
-        <p>
-        Bitte mit dem Schul-Microsoftkonto oder per E-Mail anmelden.
-        </p>
-
-        <button onclick="
-        microsoftLogin()
-        ">
-        Mit Microsoft anmelden
-        </button>
-
+        <h2>🔒 Login erforderlich</h2>
+        <p>Bitte mit dem Schul-Microsoftkonto oder per E-Mail anmelden.</p>
+        <button onclick="microsoftLogin()">Mit Microsoft anmelden</button>
         <div class="divider">— oder —</div>
-
         <input id="emailInput" type="email" placeholder="E-Mail" autocomplete="username">
         <input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
-
-        <button onclick="emailLogin()">
-        Mit E-Mail anmelden
-        </button>
-
+        <button onclick="emailLogin()">Mit E-Mail anmelden</button>
         <div id="authError" class="error"></div>
-
         </div>
-
         `;
 
         planText.innerText = "-";
         adminText.innerText = "-";
-
         logoutBtn.style.display = "none";
         document.getElementById("activationCard").style.display = "none";
 
+        if (activeCheckInterval) {
+            clearInterval(activeCheckInterval);
+        }
         return;
     }
 
-    // USER
     handleUser(user);
-
 });
 
 }catch(e){
-
     console.error("OHG-TV Ladefehler:", e);
-
-    const loginBox =
-    document.getElementById(
-    "loginRequired"
-    );
-
+    const loginBox = document.getElementById("loginRequired");
     if(loginBox){
-
         loginBox.innerHTML = `
-
         <h2>⚠️ Fehler beim Laden</h2>
-
-        <p>
-        Die Seite konnte nicht vollständig geladen werden.
-        Bitte kontaktieren sie support@ohg-tv.de.
-        </p>
-
-        <p style="opacity:0.7;font-size:0.9em;">
-        ${e.message || e}
-        </p>
-
+        <p>Die Seite konnte nicht vollständig geladen werden. Bitte wende dich an support@ohg-tv.de.</p>
+        <p style="opacity:0.7;font-size:0.9em;">${e.message || e}</p>
         `;
-
     }
-
 }
 
 })();
