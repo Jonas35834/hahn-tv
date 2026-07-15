@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>OHG-TV Admin</title>
+
+<style>
+
+body{
+    margin:0;
+    font-family:Arial;
+    background:#0f172a;
+    color:white;
+    text-align:center;
+}
+
+#app{
+    max-width:1000px;
+    margin:auto;
+    padding:15px;
+}
+
+h1{
+    margin-top:20px;
+}
+
+.card{
+    background:rgba(255,255,255,0.05);
+    border-radius:16px;
+    padding:15px;
+    margin-top:15px;
+}
+
+button{
+    background:#2563eb;
+    color:white;
+    border:none;
+    border-radius:12px;
+    padding:12px 20px;
+    cursor:pointer;
+    margin-top:10px;
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+input,select{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:12px;
+    margin-top:10px;
+    box-sizing:border-box;
+}
+
+.divider{
+    margin:20px 0;
+    opacity:0.6;
+}
+
+.error{
+    color:#f87171;
+    margin-top:10px;
+}
+
+.userCard{
+    background:rgba(255,255,255,0.05);
+    padding:10px;
+    border-radius:12px;
+    margin-top:10px;
+}
+
+iframe,
+video{
+    width:100%;
+    border:none;
+    border-radius:18px;
+    background:black;
+}
+
+.streamPreview{
+    margin-top:15px;
+    text-align:left;
+}
+
+.streamPreview h4{
+    margin-bottom:5px;
+}
+
+#adminPanel{
+    display:none;
+}
+
+footer{
+    margin-top:40px;
+    padding:20px;
+    opacity:0.7;
+}
+
+a{
+    color:#93c5fd;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div id="app">
+
+<h1>🛠️ OHG-TV Admin</h1>
+
+<p>
+<a href="/">← Zurück zu OHG-TV</a>
+</p>
+
+<!-- LOGIN -->
+<div id="loginBox" class="card">
+
+<h2>
+🔒 Admin-Login
+</h2>
+
+<p>
+Aus Sicherheitsgründen musst du dich hier erneut anmelden,
+auch wenn du auf der Hauptseite bereits eingeloggt bist.
+</p>
+
+<button onclick="microsoftLogin()">
+Mit Microsoft anmelden
+</button>
+
+<div class="divider">— oder —</div>
+
+<input id="emailInput" type="email" placeholder="E-Mail" autocomplete="username">
+<input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
+
+<button onclick="emailLogin()">
+Mit E-Mail anmelden
+</button>
+
+<div id="authError" class="error"></div>
+
+</div>
+
+<!-- ADMIN PANEL -->
+<div id="adminPanel" class="card">
+
+<p>
+Angemeldet als <b id="adminEmail"></b>
+</p>
+
+<button onclick="logout()">
+Logout
+</button>
+
+<h3>
+🎥 Streams
+</h3>
+
+<input
+id="freeStream"
+placeholder="Free Stream URL"
+>
+
+<input
+id="premiumStream"
+placeholder="Premium Stream URL"
+>
+
+<button onclick="updateStream()">
+Speichern
+</button>
+
+<div class="streamPreview">
+<h4>🆓 Free Stream Vorschau</h4>
+<div id="freePreview"></div>
+</div>
+
+<div class="streamPreview">
+<h4>💎 Premium Stream Vorschau</h4>
+<div id="premiumPreview"></div>
+</div>
+
+<h3>
+👥 Benutzer
+</h3>
+
+<div class="userCard">
+
+<b>➕ Neuen Nutzer anlegen</b>
+
+<input id="newUserEmail" type="email" placeholder="E-Mail" autocomplete="off">
+<input id="newUserPassword" type="password" placeholder="Passwort" autocomplete="new-password">
+
+<select id="newUserPlan">
+<option value="free">Free</option>
+<option value="premium">Premium</option>
+</select>
+
+<button onclick="adminCreateUser()">
+Nutzer anlegen
+</button>
+
+<div id="createUserStatus" class="error"></div>
+
+</div>
+
+<div id="userList"></div>
+
+</div>
+
+<footer>
+OHG-TV Admin
+</footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<script type="module">
+
+(async () => {
+
+try{
+
+// FIREBASE IMPORTS
+const {
+initializeApp
+} = await import(
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"
+);
+
+const {
+getAuth,
+signInWithPopup,
+OAuthProvider,
+signOut,
+onAuthStateChanged,
+signInWithEmailAndPassword,
+createUserWithEmailAndPassword
+} = await import(
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"
+);
+
+const {
+getFirestore,
+doc,
+getDoc,
+setDoc,
+updateDoc,
+collection,
+getDocs
+} = await import(
+"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"
+);
+
+// FIREBASE CONFIG
+const firebaseConfig = {
+
+apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
+
+authDomain: "ohg-tv.firebaseapp.com",
+
+projectId: "ohg-tv",
+
+storageBucket: "ohg-tv.firebasestorage.app",
+
+messagingSenderId: "700588840705",
+
+appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
+
+};
+
+// INIT (Haupt-App für den Admin-Login selbst)
+const app = initializeApp(firebaseConfig);
+
+const auth = getAuth(app);
+
+const db = getFirestore(app);
+
+// ZWEITE APP-INSTANZ, NUR FÜRS ANLEGEN NEUER NUTZER,
+// DAMIT DIE EIGENE ADMIN-SITZUNG NICHT ÜBERSCHRIEBEN WIRD
+const secondaryApp = initializeApp(firebaseConfig, "Secondary");
+
+const secondaryAuth = getAuth(secondaryApp);
+
+const ALLOWED_DOMAIN = "@ohgnagold.onmicrosoft.com";
+
+let alreadyForcedLogout = false;
+
+// HILFSFUNKTION: FEHLERTEXT ANZEIGEN
+function showAuthError(msg){
+
+    const el = document.getElementById("authError");
+
+    if(el) el.innerText = msg;
+
+}
+
+// FIREBASE FEHLERCODES INS DEUTSCHE ÜBERSETZEN
+function translateAuthError(e){
+
+    const code = e.code || "";
+
+    if(code.includes("wrong-password") || code.includes("invalid-credential")){
+        return "Falsches Passwort oder E-Mail.";
+    }
+
+    if(code.includes("user-not-found")){
+        return "Kein Konto mit dieser E-Mail gefunden.";
+    }
+
+    if(code.includes("email-already-in-use")){
+        return "Diese E-Mail ist bereits registriert.";
+    }
+
+    if(code.includes("invalid-email")){
+        return "Ungültige E-Mail-Adresse.";
+    }
+
+    if(code.includes("weak-password")){
+        return "Passwort ist zu schwach (mind. 6 Zeichen).";
+    }
+
+    return e.message;
+
+}
+
+// MICROSOFT LOGIN
+window.microsoftLogin =
+async function(){
+
+    showAuthError("");
+
+    const provider =
+    new OAuthProvider(
+    "microsoft.com"
+    );
+
+    provider.setCustomParameters({
+
+        tenant:
+        "6e52e902-bb31-460e-b1b9-5b5bc2272acf"
+
+    });
+
+    try{
+
+        const result =
+        await signInWithPopup(
+            auth,
+            provider
+        );
+
+        if(
+            !result.user.email.endsWith(
+            ALLOWED_DOMAIN
+            )
+        ){
+
+            showAuthError(
+            "Nur Schulaccounts erlaubt."
+            );
+
+            await signOut(auth);
+
+            return;
+        }
+
+    }catch(e){
+
+        showAuthError(e.message);
+
+    }
+
+};
+
+// EMAIL/PASSWORT LOGIN
+window.emailLogin =
+async function(){
+
+    showAuthError("");
+
+    const email =
+    document.getElementById(
+    "emailInput"
+    ).value.trim();
+
+    const password =
+    document.getElementById(
+    "passwordInput"
+    ).value;
+
+    if(!email || !password){
+
+        showAuthError(
+        "Bitte E-Mail und Passwort eingeben."
+        );
+
+        return;
+
+    }
+
+    try{
+
+        await signInWithEmailAndPassword(
+            auth,
+            email,
+            password
+        );
+
+    }catch(e){
+
+        showAuthError(
+        translateAuthError(e)
+        );
+
+    }
+
+};
+
+// LOGOUT
+window.logout =
+function(){
+
+    signOut(auth);
+
+};
+
+// ADMIN USERLISTE
+async function loadAdmin(){
+
+    const users =
+    await getDocs(
+        collection(
+            db,
+            "users"
+        )
+    );
+
+    userList.innerHTML = "";
+
+    users.forEach((u)=>{
+
+        const d =
+        u.data();
+
+        const div =
+        document.createElement(
+        "div"
+        );
+
+        div.className =
+        "userCard";
+
+        div.innerHTML = `
+
+        <b>
+        ${d.email}
+        </b>
+
+        <br>
+
+        Plan:
+        ${d.plan}
+
+        <br>
+
+        Rolle:
+        ${d.role}
+
+        <br>
+
+        <button
+        onclick="
+        setPlan(
+        '${u.id}',
+        'premium'
+        )
+        ">
+        Premium
+        </button>
+
+        <button
+        onclick="
+        setPlan(
+        '${u.id}',
+        'free'
+        )
+        ">
+        Free
+        </button>
+
+        `;
+
+        userList.appendChild(
+        div
+        );
+
+    });
+
+}
+
+// NEUEN NUTZER ANLEGEN
+window.adminCreateUser =
+async function(){
+
+    const statusEl =
+    document.getElementById(
+    "createUserStatus"
+    );
+
+    statusEl.innerText = "";
+
+    const email =
+    document.getElementById(
+    "newUserEmail"
+    ).value.trim();
+
+    const password =
+    document.getElementById(
+    "newUserPassword"
+    ).value;
+
+    const plan =
+    document.getElementById(
+    "newUserPlan"
+    ).value;
+
+    if(!email || !password){
+
+        statusEl.innerText =
+        "Bitte E-Mail und Passwort eingeben.";
+
+        return;
+
+    }
+
+    if(password.length < 6){
+
+        statusEl.innerText =
+        "Passwort muss mindestens 6 Zeichen lang sein.";
+
+        return;
+
+    }
+
+    try{
+
+        const result =
+        await createUserWithEmailAndPassword(
+            secondaryAuth,
+            email,
+            password
+        );
+
+        await setDoc(
+
+            doc(
+                db,
+                "users",
+                result.user.uid
+            ),
+
+            {
+
+                email:email,
+
+                plan:plan,
+
+                role:"user"
+
+            }
+
+        );
+
+        await signOut(secondaryAuth);
+
+        document.getElementById(
+        "newUserEmail"
+        ).value = "";
+
+        document.getElementById(
+        "newUserPassword"
+        ).value = "";
+
+        statusEl.style.color = "#4ade80";
+
+        statusEl.innerText =
+        "Nutzer wurde angelegt.";
+
+        loadAdmin();
+
+    }catch(e){
+
+        statusEl.style.color = "#f87171";
+
+        statusEl.innerText =
+        translateAuthError(e);
+
+    }
+
+};
+
+// PLAN ÄNDERN
+window.setPlan =
+async function(uid,plan){
+
+    await updateDoc(
+
+        doc(
+            db,
+            "users",
+            uid
+        ),
+
+        {
+            plan
+        }
+
+    );
+
+    loadAdmin();
+
+};
+
+// STREAM-VORSCHAU RENDERN
+function renderPreview(containerId, url){
+
+    const container =
+    document.getElementById(
+    containerId
+    );
+
+    if(!url){
+
+        container.innerHTML = `
+        <p style="opacity:0.6;">
+        Keine URL hinterlegt.
+        </p>
+        `;
+
+        return;
+
+    }
+
+    // HLS
+    if(url.includes(".m3u8")){
+
+        const videoId =
+        containerId + "Video";
+
+        container.innerHTML = `
+        <video
+        id="${videoId}"
+        controls
+        playsinline>
+        </video>
+        `;
+
+        const video =
+        document.getElementById(
+        videoId
+        );
+
+        if(Hls.isSupported()){
+
+            const hls =
+            new Hls();
+
+            hls.loadSource(url);
+
+            hls.attachMedia(video);
+
+        }else{
+
+            video.src = url;
+
+        }
+
+    }
+
+    // YOUTUBE / IFRAME
+    else{
+
+        container.innerHTML = `
+        <iframe
+        src="${url}"
+        allowfullscreen
+        style="height:300px;">
+        </iframe>
+        `;
+
+    }
+
+}
+
+// STREAM ÄNDERN
+window.updateStream =
+async function(){
+
+    await updateDoc(
+
+        doc(
+            db,
+            "config",
+            "stream"
+        ),
+
+        {
+
+            free:
+            freeStream.value,
+
+            premium:
+            premiumStream.value
+
+        }
+
+    );
+
+    renderPreview(
+    "freePreview",
+    freeStream.value
+    );
+
+    renderPreview(
+    "premiumPreview",
+    premiumStream.value
+    );
+
+    alert(
+    "Gespeichert"
+    );
+
+};
+
+// STREAM-INPUTS LADEN
+async function loadInputs(){
+
+    const ref =
+    doc(
+        db,
+        "config",
+        "stream"
+    );
+
+    const snap =
+    await getDoc(ref);
+
+    if(!snap.exists()){
+
+        await setDoc(ref,{
+
+            free:"",
+            premium:""
+
+        });
+
+        return;
+    }
+
+    const d =
+    snap.data();
+
+    freeStream.value =
+    d.free || "";
+
+    premiumStream.value =
+    d.premium || "";
+
+    renderPreview(
+    "freePreview",
+    d.free
+    );
+
+    renderPreview(
+    "premiumPreview",
+    d.premium
+    );
+
+}
+
+// AUTH-STATUS
+onAuthStateChanged(
+auth,
+async (user)=>{
+
+    // ERZWUNGENER RE-LOGIN:
+    // Direkt nach dem Laden der Admin-Seite einmal ausloggen,
+    // damit eine bestehende Sitzung von der Hauptseite hier
+    // NICHT automatisch als "eingeloggt" durchgeht.
+    if(user && !alreadyForcedLogout){
+
+        alreadyForcedLogout = true;
+
+        await signOut(auth);
+
+        return;
+
+    }
+
+    // NICHT EINGELOGGT -> LOGINBOX ZEIGEN
+    if(!user){
+
+        loginBox.style.display = "block";
+
+        adminPanel.style.display = "none";
+
+        return;
+
+    }
+
+    // EINGELOGGT -> ROLLE PRÜFEN
+    const ref =
+    doc(
+        db,
+        "users",
+        user.uid
+    );
+
+    const snap =
+    await getDoc(ref);
+
+    const data =
+    snap.exists()
+    ? snap.data()
+    : null;
+
+    if(
+        !data ||
+        data.role !== "admin"
+    ){
+
+        showAuthError(
+        "Dieser Account hat keine Admin-Rechte."
+        );
+
+        await signOut(auth);
+
+        return;
+
+    }
+
+    // ADMIN BESTÄTIGT
+    loginBox.style.display = "none";
+
+    adminPanel.style.display = "block";
+
+    adminEmail.innerText = data.email;
+
+    loadAdmin();
+
+    loadInputs();
+
+});
+
+}catch(e){
+
+    console.error("OHG-TV Admin Ladefehler:", e);
+
+    const loginBox =
+    document.getElementById(
+    "loginBox"
+    );
+
+    if(loginBox){
+
+        loginBox.innerHTML = `
+
+        <h2>⚠️ Fehler beim Laden</h2>
+
+        <p>
+        Die Seite konnte nicht vollständig geladen werden.
+        Details siehe Browser-Konsole (F12).
+        </p>
+
+        <p style="opacity:0.7;font-size:0.9em;">
+        ${e.message || e}
+        </p>
+
+        `;
+
+    }
+
+}
+
+})();
+
+</script>
+
+</body>
+</html>
