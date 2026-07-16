@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OHG-TV Admin</title>
+<style>
+body{margin:0;font-family:Arial;background:#0f172a;color:white;text-align:center;}
+#app{max-width:1000px;margin:auto;padding:15px;}
+h1{margin-top:20px;}
+.card{background:rgba(255,255,255,0.05);border-radius:16px;padding:15px;margin-top:15px;}
+button{background:#2563eb;color:white;border:none;border-radius:12px;padding:12px 20px;cursor:pointer;margin-top:10px;}
+button:hover{opacity:0.9;}
+input,select{width:100%;padding:12px;border:none;border-radius:12px;margin-top:10px;box-sizing:border-box;}
+.divider{margin:20px 0;opacity:0.6;}
+.error{color:#f87171;margin-top:10px;}
+.userCard{background:rgba(255,255,255,0.05);padding:10px;border-radius:12px;margin-top:10px;}
+iframe,video{width:100%;border:none;border-radius:18px;background:black;}
+.streamPreview{margin-top:15px;text-align:left;}
+.streamPreview h4{margin-bottom:5px;}
+#adminPanel{display:none;}
+footer{margin-top:40px;padding:20px;opacity:0.7;}
+a{color:#93c5fd;}
+
+/* MODAL FÜR MIGRATION (ALT-ADMINS) */
+#migrationModal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.95);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.modal-content {
+    background: #1e293b;
+    padding: 30px;
+    border-radius: 16px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+<h1>🛠️ OHG-TV Admin</h1>
+<p><a href="/">← Zurück zu OHG-TV</a></p>
+
+<div id="loginBox" class="card">
+<h2>🔒 Admin-Login</h2>
+<p>Aus Sicherheitsgründen musst du dich hier erneut anmelden.</p>
+<button onclick="microsoftLogin()">Mit Microsoft anmelden</button>
+<div class="divider">— oder —</div>
+<input id="emailInput" type="email" placeholder="E-Mail" autocomplete="username">
+<input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
+<button onclick="emailLogin()">Mit E-Mail anmelden</button>
+<div id="authError" class="error"></div>
+</div>
+
+<div id="migrationModal">
+<div class="modal-content">
+<h2>🔄 System-Upgrade</h2>
+<p>Deine aktuelle Rolle ist veraltet (<b>Admin</b>). Bitte wähle aus, welchen neuen Rang du im neuen System erhalten sollst:</p>
+<select id="migrationRoleSelect">
+<option value="owner">👑 Owner (Vollzugriff + Ränge verwalten)</option>
+<option value="techniker">🛠️ Techniker (Stream bearbeiten & Vorschau)</option>
+<option value="verkaeufer">💼 Verkäufer (Codes generieren & User anlegen)</option>
+</select>
+<button onclick="applyMigration()" style="width: 100%; margin-top: 20px; background: #10b981;">Änderung übernehmen & einloggen</button>
+</div>
+</div>
+
+<div id="adminPanel" class="card">
+<p>Angemeldet als: <b id="adminEmail"></b> (<span id="adminRoleDisplay" style="color:#60a5fa;"></span>)</p>
+<button onclick="logout()">Logout</button>
+
+<div id="streamSection" style="display:none;">
+<h3>🎥 Streams bearbeiten</h3>
+<input id="freeStream" placeholder="Free Stream URL">
+<input id="premiumStream" placeholder="Premium Stream URL">
+<button onclick="updateStream()">Speichern</button>
+<div class="streamPreview">
+<h4>🆓 Free Stream Vorschau</h4>
+<div id="freePreview"></div>
+</div>
+<div class="streamPreview">
+<h4>💎 Premium Stream Vorschau</h4>
+<div id="premiumPreview"></div>
+</div>
+</div>
+
+<div id="codeSection" style="display:none;">
+<h3>🔑 Codes generieren</h3>
+<div class="userCard">
+<b>➕ Neuen Aktivierungscode erstellen</b>
+<input id="codeDuration" type="number" placeholder="Gültigkeit nach Aktivierung (in Minuten)" value="60">
+<button onclick="generateActivationCode()">Code erstellen</button>
+<div id="codeStatus" class="error" style="color: #4ade80;"></div>
+</div>
+</div>
+
+<div id="userSection" style="display:none;">
+<h3>👥 Benutzerverwaltung</h3>
+<div class="userCard">
+<b>➕ Neuen Nutzer anlegen</b>
+<input id="newUserEmail" type="email" placeholder="E-Mail" autocomplete="off">
+<input id="newUserPassword" type="password" placeholder="Passwort" autocomplete="new-password">
+<select id="newUserPlan">
+<option value="free">Plan: Free</option>
+<option value="premium">Plan: Premium</option>
+</select>
+<div id="roleSelectWrapper" style="display:none;">
+<select id="newUserRole">
+<option value="user">Rolle: User</option>
+<option value="mitarbeiter">Rolle: Mitarbeiter</option>
+<option value="verkaeufer">Rolle: Verkäufer</option>
+<option value="techniker">Rolle: Techniker</option>
+<option value="owner">Rolle: Owner</option>
+</select>
+</div>
+<button onclick="adminCreateUser()">Nutzer anlegen</button>
+<div id="createUserStatus" class="error"></div>
+</div>
+<div id="userList"></div>
+</div>
+
+</div>
+<footer>OHG-TV Admin</footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script type="module">
+(async () => {
+try{
+const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
+const { getAuth, signInWithPopup, OAuthProvider, signOut, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+const { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
+    authDomain: "ohg-tv.firebaseapp.com",
+    projectId: "ohg-tv",
+    storageBucket: "ohg-tv.firebasestorage.app",
+    messagingSenderId: "700588840705",
+    appId: "1:700588840705:web:cb7d3f18f8bba3512d2d00"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const secondaryApp = initializeApp(firebaseConfig, "Secondary");
+const secondaryAuth = getAuth(secondaryApp);
+
+const ALLOWED_DOMAIN = "@ohgnagold.onmicrosoft.com";
+let alreadyForcedLogout = false;
+let currentAdminRole = "user";
+let currentUserId = null;
+
+function showAuthError(msg){
+    const el = document.getElementById("authError");
+    if(el) el.innerText = msg;
+}
+
+function translateAuthError(e){
+    const code = e.code || "";
+    if(code.includes("wrong-password") || code.includes("invalid-credential")) return "Falsches Passwort oder E-Mail.";
+    if(code.includes("user-not-found")) return "Kein Konto mit dieser E-Mail gefunden.";
+    if(code.includes("email-already-in-use")) return "Diese E-Mail ist bereits registriert.";
+    if(code.includes("invalid-email")) return "Ungültige E-Mail-Adresse.";
+    if(code.includes("weak-password")) return "Passwort ist zu schwach (mind. 6 Zeichen).";
+    return e.message;
+}
+
+window.microsoftLogin = async function(){
+    showAuthError("");
+    const provider = new OAuthProvider("microsoft.com");
+    provider.setCustomParameters({ tenant: "6e52e902-bb31-460e-b1b9-5b5bc2272acf" });
+    try{
+        const result = await signInWithPopup(auth, provider);
+        if(!result.user.email.endsWith(ALLOWED_DOMAIN)){
+            showAuthError("Nur Schulaccounts erlaubt.");
+            await signOut(auth);
+            return;
+        }
+    }catch(e){
+        showAuthError(e.message);
+    }
+};
+
+window.emailLogin = async function(){
+    showAuthError("");
+    const email = document.getElementById("emailInput").value.trim();
+    const password = document.getElementById("passwordInput").value;
+    if(!email || !password){
+        showAuthError("Bitte E-Mail und Passwort eingeben.");
+        return;
+    }
+    try{
+        await signInWithEmailAndPassword(auth, email, password);
+    }catch(e){
+        showAuthError(translateAuthError(e));
+    }
+};
+
+window.logout = function(){
+    signOut(auth);
+};
+
+// Alt-Admin umstellen
+window.applyMigration = async function() {
+    if (!currentUserId) return;
+    const selectedRole = document.getElementById("migrationRoleSelect").value;
+    try {
+        await updateDoc(doc(db, "users", currentUserId), {
+            role: selectedRole
+        });
+        document.getElementById("migrationModal").style.display = "none";
+        // Seite neu laden, um die UI mit dem neuen Rang neu aufzubauen
+        location.reload();
+    } catch (e) {
+        alert("Fehler beim Rang-Upgrade: " + e.message);
+    }
+};
+
+// BENUTZERLISTE LADEN
+async function loadAdmin(){
+    const users = await getDocs(collection(db, "users"));
+    const listEl = document.getElementById("userList");
+    listEl.innerHTML = "";
+
+    users.forEach((u)=>{
+        const d = u.data();
+        const div = document.createElement("div");
+        div.className = "userCard";
+
+        let controls = `
+            Plan: ${d.plan} 
+            <button onclick="setPlan('${u.id}', 'premium')">Premium</button>
+            <button onclick="setPlan('${u.id}', 'free')">Free</button>
+        `;
+
+        if (currentAdminRole === "owner") {
+            controls += `
+                <br>Rolle: ${d.role}
+                <select onchange="setRole('${u.id}', this.value)" style="width: auto; display: inline-block; padding: 5px; margin-top: 5px;">
+                    <option value="user" ${d.role === 'user' ? 'selected' : ''}>User</option>
+                    <option value="mitarbeiter" ${d.role === 'mitarbeiter' ? 'selected' : ''}>Mitarbeiter</option>
+                    <option value="verkaeufer" ${d.role === 'verkaeufer' ? 'selected' : ''}>Verkäufer</option>
+                    <option value="techniker" ${d.role === 'techniker' ? 'selected' : ''}>Techniker</option>
+                    <option value="owner" ${d.role === 'owner' ? 'selected' : ''}>Owner</option>
+                    <option value="admin" ${d.role === 'admin' ? 'selected' : ''} disabled>Alt-Admin (Inaktiv)</option>
+                </select>
+            `;
+        } else {
+            controls += `<br>Rolle: ${d.role.toUpperCase()}`;
+        }
+
+        div.innerHTML = `<b>${d.email}</b><br>${controls}`;
+        listEl.appendChild(div);
+    });
+}
+
+window.setPlan = async function(uid, plan){
+    try {
+        await updateDoc(doc(db, "users", uid), { plan });
+        loadAdmin();
+    } catch(e) {
+        alert("Fehler beim Plan-Update: " + e.message);
+    }
+};
+
+window.setRole = async function(uid, role){
+    try {
+        await updateDoc(doc(db, "users", uid), { role });
+        loadAdmin();
+    } catch(e) {
+        alert("Fehler beim Rang-Update: " + e.message);
+    }
+};
+
+window.adminCreateUser = async function(){
+    const statusEl = document.getElementById("createUserStatus");
+    statusEl.innerText = "";
+    statusEl.style.color = "#f87171";
+
+    const email = document.getElementById("newUserEmail").value.trim();
+    const password = document.getElementById("newUserPassword").value;
+    const plan = document.getElementById("newUserPlan").value;
+    
+    const role = (currentAdminRole === "owner") ? document.getElementById("newUserRole").value : "user";
+
+    if(!email || !password){
+        statusEl.innerText = "Bitte E-Mail und Passwort eingeben.";
+        return;
+    }
+
+    try{
+        await secondaryAuth.setPersistence({ type: 'NONE' });
+        const result = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+
+        await setDoc(doc(db, "users", result.user.uid), {
+            email: email,
+            plan: plan,
+            role: role,
+            activeCode: null
+        });
+
+        await signOut(secondaryAuth);
+        document.getElementById("newUserEmail").value = "";
+        document.getElementById("newUserPassword").value = "";
+        statusEl.style.color = "#4ade80";
+        statusEl.innerText = `Nutzer ${email} erfolgreich angelegt!`;
+        loadAdmin();
+    }catch(e){
+        statusEl.innerText = translateAuthError(e);
+    }
+};
+
+window.updateStream = async function(){
+    try {
+        await updateDoc(doc(db, "config", "stream"), {
+            free: freeStream.value,
+            premium: premiumStream.value
+        });
+        renderPreview("freePreview", freeStream.value);
+        renderPreview("premiumPreview", premiumStream.value);
+        alert("Stream-URLs gespeichert!");
+    } catch(e) {
+        alert("Fehler beim Speichern: " + e.message);
+    }
+};
+
+function renderPreview(containerId, url){
+    const container = document.getElementById(containerId);
+    if(!url){
+        container.innerHTML = `<p style="opacity:0.6;">Keine URL hinterlegt.</p>`;
+        return;
+    }
+    if(url.includes(".m3u8")){
+        const videoId = containerId + "Video";
+        container.innerHTML = `<video id="${videoId}" controls playsinline></video>`;
+        const video = document.getElementById(videoId);
+        if(Hls.isSupported()){
+            const hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(video);
+        }else{
+            video.src = url;
+        }
+    }else{
+        container.innerHTML = `<iframe src="${url}" allowfullscreen style="height:300px;"></iframe>`;
+    }
+}
+
+async function loadInputs(){
+    const ref = doc(db, "config", "stream");
+    const snap = await getDoc(ref);
+    if(!snap.exists()) return;
+    const d = snap.data();
+    freeStream.value = d.free || "";
+    premiumStream.value = d.premium || "";
+    renderPreview("freePreview", d.free);
+    renderPreview("premiumPreview", d.premium);
+}
+
+function makeRandomCode() {
+    const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    let result = "OHG-";
+    for (let i = 0; i < 8; i++) {
+        if (i === 4) result += "-";
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+window.generateActivationCode = async function() {
+    const statusEl = document.getElementById("codeStatus");
+    const duration = parseInt(document.getElementById("codeDuration").value);
+    statusEl.innerText = "";
+    statusEl.style.color = "#f87171";
+
+    if (isNaN(duration) || duration <= 0) {
+        statusEl.innerText = "Bitte eine gültige Dauer in Minuten eingeben.";
+        return;
+    }
+
+    const newCode = makeRandomCode();
+    try {
+        await setDoc(doc(db, "activation_codes", newCode), {
+            durationMinutes: duration,
+            activatedAt: null,
+            expiresAt: null,
+            usedBy: null
+        });
+        statusEl.style.color = "#4ade80";
+        statusEl.innerText = `Code erstellt: ${newCode} (${duration} Min. aktiv)`;
+    } catch (e) {
+        statusEl.innerText = "Fehler: " + e.message;
+    }
+};
+
+// AUTH WATCHER
+onAuthStateChanged(auth, async (user)=>{
+    if(user && !alreadyForcedLogout){
+        alreadyForcedLogout = true;
+        await signOut(auth);
+        return;
+    }
+
+    if(!user){
+        loginBox.style.display = "block";
+        adminPanel.style.display = "none";
+        document.getElementById("migrationModal").style.display = "none";
+        return;
+    }
+
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+    const data = snap.exists() ? snap.data() : null;
+
+    if(!data){
+        showAuthError("Kein Benutzerprofil gefunden.");
+        await signOut(auth);
+        return;
+    }
+
+    currentUserId = user.uid;
+
+    // PRÜFUNG: Ist es ein Alt-Admin?
+    if(data.role === "admin"){
+        loginBox.style.display = "none";
+        document.getElementById("migrationModal").style.display = "flex"; // Öffnet das Auswahlfenster
+        return;
+    }
+
+    const erlaubteRänge = ["owner", "techniker", "verkaeufer"];
+    if(!erlaubteRänge.includes(data.role)){
+        showAuthError("Zugriff verweigert. Du hast keinen Admin-Rang.");
+        await signOut(auth);
+        return;
+    }
+
+    currentAdminRole = data.role;
+    loginBox.style.display = "none";
+    adminPanel.style.display = "block";
+    adminEmail.innerText = data.email;
+    adminRoleDisplay.innerText = data.role.toUpperCase();
+
+    document.getElementById("streamSection").style.display = "none";
+    document.getElementById("codeSection").style.display = "none";
+    document.getElementById("userSection").style.display = "none";
+    document.getElementById("roleSelectWrapper").style.display = "none";
+
+    if (currentAdminRole === "owner") {
+        document.getElementById("streamSection").style.display = "block";
+        document.getElementById("codeSection").style.display = "block";
+        document.getElementById("userSection").style.display = "block";
+        document.getElementById("roleSelectWrapper").style.display = "block";
+        loadAdmin();
+        loadInputs();
+    } 
+    else if (currentAdminRole === "techniker") {
+        document.getElementById("streamSection").style.display = "block";
+        loadInputs();
+    } 
+    else if (currentAdminRole === "verkaeufer") {
+        document.getElementById("codeSection").style.display = "block";
+        document.getElementById("userSection").style.display = "block";
+        loadAdmin();
+    }
+});
+}catch(e){
+    console.error("OHG-TV Admin Ladefehler:", e);
+}
+})();
+</script>
+</body>
+</html>
