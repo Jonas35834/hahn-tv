@@ -11,7 +11,9 @@ h1{margin-top:20px;}
 .card{background:rgba(255,255,255,0.05);border-radius:16px;padding:15px;margin-top:15px;}
 button{background:#2563eb;color:white;border:none;border-radius:12px;padding:12px 20px;cursor:pointer;margin-top:10px;}
 button:hover{opacity:0.9;}
-input,select{width:100%;padding:12px;border:none;border-radius:12px;margin-top:10px;box-sizing:border-box;}
+input,select{width:100%;padding:12px;border:none;border-radius:12px;margin-top:10px;box-sizing:border-box;background:rgba(255,255,255,0.1);color:white;}
+input::placeholder {color: rgba(255, 255, 255, 0.5);}
+select option {background: #1e293b; color: white;}
 .divider{margin:20px 0;opacity:0.6;}
 .error{color:#f87171;margin-top:10px;}
 .userCard{background:rgba(255,255,255,0.05);padding:10px;border-radius:12px;margin-top:10px;}
@@ -21,6 +23,25 @@ iframe,video{width:100%;border:none;border-radius:18px;background:black;}
 #adminPanel{display:none;}
 footer{margin-top:40px;padding:20px;opacity:0.7;}
 a{color:#93c5fd;}
+
+/* MODAL FÜR MIGRATION */
+#migrationModal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(15, 23, 42, 0.95);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+.modal-content {
+    background: #1e293b;
+    padding: 30px;
+    border-radius: 16px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+}
 </style>
 </head>
 <body>
@@ -38,6 +59,19 @@ a{color:#93c5fd;}
 <input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
 <button onclick="emailLogin()">Mit E-Mail anmelden</button>
 <div id="authError" class="error"></div>
+</div>
+
+<div id="migrationModal">
+<div class="modal-content">
+<h2>🔄 System-Upgrade</h2>
+<p>Deine aktuelle Rolle ist veraltet (<b>Admin</b>). Bitte wähle aus, welchen neuen Rang du im neuen System erhalten sollst:</p>
+<select id="migrationRoleSelect">
+<option value="owner">👑 Owner (Vollzugriff + Ränge verwalten)</option>
+<option value="techniker">🛠️ Techniker (Stream bearbeiten & Vorschau)</option>
+<option value="verkaeufer">💼 Verkäufer (Codes generieren & User anlegen)</option>
+</select>
+<button onclick="applyMigration()" style="width: 100%; margin-top: 20px; background: #10b981;">Änderung übernehmen & einloggen</button>
+</div>
 </div>
 
 <div id="adminPanel" class="card">
@@ -102,10 +136,31 @@ a{color:#93c5fd;}
 <script type="module">
 (async () => {
 try{
+// FIREBASE IMPORTS
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-const { getAuth, signInWithPopup, OAuthProvider, signOut, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
-const { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+const { 
+    getAuth, 
+    signInWithPopup, 
+    OAuthProvider, 
+    signOut, 
+    onAuthStateChanged, 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword,
+    setPersistence,
+    inMemoryPersistence
+} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
 
+const { 
+    getFirestore, 
+    doc, 
+    getDoc, 
+    setDoc, 
+    updateDoc, 
+    collection, 
+    getDocs 
+} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+// FIREBASE CONFIG
 const firebaseConfig = {
     apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
     authDomain: "ohg-tv.firebaseapp.com",
@@ -125,6 +180,7 @@ const secondaryAuth = getAuth(secondaryApp);
 const ALLOWED_DOMAIN = "@ohgnagold.onmicrosoft.com";
 let alreadyForcedLogout = false;
 let currentAdminRole = "user";
+let currentUserId = null;
 
 function showAuthError(msg){
     const el = document.getElementById("authError");
@@ -176,6 +232,21 @@ window.logout = function(){
     signOut(auth);
 };
 
+// Alt-Admin umstellen
+window.applyMigration = async function() {
+    if (!currentUserId) return;
+    const selectedRole = document.getElementById("migrationRoleSelect").value;
+    try {
+        await updateDoc(doc(db, "users", currentUserId), {
+            role: selectedRole
+        });
+        document.getElementById("migrationModal").style.display = "none";
+        location.reload();
+    } catch (e) {
+        alert("Fehler beim Rang-Upgrade: " + e.message);
+    }
+};
+
 // BENUTZERLISTE LADEN
 async function loadAdmin(){
     const users = await getDocs(collection(db, "users"));
@@ -193,16 +264,16 @@ async function loadAdmin(){
             <button onclick="setPlan('${u.id}', 'free')">Free</button>
         `;
 
-        // Nur der Owner darf die Rollen der Nutzer bearbeiten
         if (currentAdminRole === "owner") {
             controls += `
                 <br>Rolle: ${d.role}
-                <select onchange="setRole('${u.id}', this.value)" style="width: auto; display: inline-block; padding: 5px; margin-top: 5px;">
+                <select onchange="setRole('${u.id}', this.value)" style="width: auto; display: inline-block; padding: 5px; margin-top: 5px; background: #1e293b; color: white; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;">
                     <option value="user" ${d.role === 'user' ? 'selected' : ''}>User</option>
                     <option value="mitarbeiter" ${d.role === 'mitarbeiter' ? 'selected' : ''}>Mitarbeiter</option>
                     <option value="verkaeufer" ${d.role === 'verkaeufer' ? 'selected' : ''}>Verkäufer</option>
                     <option value="techniker" ${d.role === 'techniker' ? 'selected' : ''}>Techniker</option>
                     <option value="owner" ${d.role === 'owner' ? 'selected' : ''}>Owner</option>
+                    <option value="admin" ${d.role === 'admin' ? 'selected' : ''} disabled>Alt-Admin (Inaktiv)</option>
                 </select>
             `;
         } else {
@@ -214,7 +285,6 @@ async function loadAdmin(){
     });
 }
 
-// PLAN UPGRADEN / DOWNGRADEN
 window.setPlan = async function(uid, plan){
     try {
         await updateDoc(doc(db, "users", uid), { plan });
@@ -224,7 +294,6 @@ window.setPlan = async function(uid, plan){
     }
 };
 
-// RANG BESTIMMEN (Nur für Owner)
 window.setRole = async function(uid, role){
     try {
         await updateDoc(doc(db, "users", uid), { role });
@@ -234,6 +303,7 @@ window.setRole = async function(uid, role){
     }
 };
 
+// FEHLERFREIES ANLEGEN (MIT KORREKTEM MODULAREN SETPERSISTENCE)
 window.adminCreateUser = async function(){
     const statusEl = document.getElementById("createUserStatus");
     statusEl.innerText = "";
@@ -243,7 +313,6 @@ window.adminCreateUser = async function(){
     const password = document.getElementById("newUserPassword").value;
     const plan = document.getElementById("newUserPlan").value;
     
-    // Verkäufer legen standardmäßig nur 'user' an, Owner darf die Rolle wählen
     const role = (currentAdminRole === "owner") ? document.getElementById("newUserRole").value : "user";
 
     if(!email || !password){
@@ -252,10 +321,16 @@ window.adminCreateUser = async function(){
     }
 
     try{
-        await secondaryAuth.setPersistence({ type: 'NONE' });
+        // Verhindert das automatische Einloggen des neuen Nutzers im Admin-Browser
+        await setPersistence(secondaryAuth, inMemoryPersistence);
+        
+        // Registriert den Account
         const result = await createUserWithEmailAndPassword(secondaryAuth, email, password);
 
-        await setDoc(doc(db, "users", result.user.uid), {
+        // Erstellt die Firestore-Referenz fehlerfrei
+        const userDocRef = doc(db, "users", result.user.uid);
+        
+        await setDoc(userDocRef, {
             email: email,
             plan: plan,
             role: role,
@@ -263,6 +338,7 @@ window.adminCreateUser = async function(){
         });
 
         await signOut(secondaryAuth);
+        
         document.getElementById("newUserEmail").value = "";
         document.getElementById("newUserPassword").value = "";
         statusEl.style.color = "#4ade80";
@@ -270,10 +346,10 @@ window.adminCreateUser = async function(){
         loadAdmin();
     }catch(e){
         statusEl.innerText = translateAuthError(e);
+        console.error("Fehler beim Erstellen des Nutzers:", e);
     }
 };
 
-// STREAM URLS UPDATE
 window.updateStream = async function(){
     try {
         await updateDoc(doc(db, "config", "stream"), {
@@ -321,7 +397,6 @@ async function loadInputs(){
     renderPreview("premiumPreview", d.premium);
 }
 
-// CODE GENERATOR
 function makeRandomCode() {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let result = "OHG-";
@@ -369,29 +444,41 @@ onAuthStateChanged(auth, async (user)=>{
     if(!user){
         loginBox.style.display = "block";
         adminPanel.style.display = "none";
+        document.getElementById("migrationModal").style.display = "none";
         return;
     }
 
-    // Rolle des angemeldeten Benutzers abrufen
     const ref = doc(db, "users", user.uid);
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : null;
 
+    if(!data){
+        showAuthError("Kein Benutzerprofil gefunden.");
+        await signOut(auth);
+        return;
+    }
+
+    currentUserId = user.uid;
+
+    if(data.role === "admin"){
+        loginBox.style.display = "none";
+        document.getElementById("migrationModal").style.display = "flex";
+        return;
+    }
+
     const erlaubteRänge = ["owner", "techniker", "verkaeufer"];
-    if(!data || !erlaubteRänge.includes(data.role)){
+    if(!erlaubteRänge.includes(data.role)){
         showAuthError("Zugriff verweigert. Du hast keinen Admin-Rang.");
         await signOut(auth);
         return;
     }
 
-    // PANEL ANPASSEN JE NACH RANG
     currentAdminRole = data.role;
     loginBox.style.display = "none";
     adminPanel.style.display = "block";
     adminEmail.innerText = data.email;
     adminRoleDisplay.innerText = data.role.toUpperCase();
 
-    // Sektionen zurücksetzen
     document.getElementById("streamSection").style.display = "none";
     document.getElementById("codeSection").style.display = "none";
     document.getElementById("userSection").style.display = "none";
@@ -401,7 +488,7 @@ onAuthStateChanged(auth, async (user)=>{
         document.getElementById("streamSection").style.display = "block";
         document.getElementById("codeSection").style.display = "block";
         document.getElementById("userSection").style.display = "block";
-        document.getElementById("roleSelectWrapper").style.display = "block"; // Nur Owner verteilt Ränge
+        document.getElementById("roleSelectWrapper").style.display = "block";
         loadAdmin();
         loadInputs();
     } 
