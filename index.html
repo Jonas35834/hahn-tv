@@ -21,6 +21,8 @@ iframe,video{width:100%;border:none;border-radius:18px;background:black;height:4
 .error{color:#f87171;margin-top:10px;}
 .success{color:#4ade80;margin-top:10px;}
 footer{margin-top:40px;padding:20px;opacity:0.7;}
+.link-btn{background:none;border:none;color:#93c5fd;cursor:pointer;text-decoration:underline;padding:0;margin-top:12px;font-size:14px;}
+.link-btn:hover{opacity:0.8;}
 </style>
 </head>
 <body>
@@ -39,6 +41,8 @@ footer{margin-top:40px;padding:20px;opacity:0.7;}
 <input id="emailInput" type="email" placeholder="E-Mail" autocomplete="username">
 <input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
 <button onclick="emailLogin()">Mit E-Mail anmelden</button>
+<br>
+<button class="link-btn" onclick="resetPassword()">Passwort vergessen?</button>
 <div id="authError" class="error"></div>
 </div>
 </div>
@@ -69,7 +73,7 @@ footer{margin-top:40px;padding:20px;opacity:0.7;}
 (async () => {
 try{
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
-const { getAuth, signInWithPopup, OAuthProvider, signOut, onAuthStateChanged, signInWithEmailAndPassword } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+const { getAuth, signInWithPopup, OAuthProvider, signOut, onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
 const { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
 
 const firebaseConfig = {
@@ -88,9 +92,12 @@ const db = getFirestore(app);
 const ALLOWED_DOMAIN = "@ohgnagold.onmicrosoft.com";
 let activeCheckInterval = null;
 
-function showAuthError(msg){
+function showAuthError(msg, isSuccess=false){
     const el = document.getElementById("authError");
-    if(el) el.innerText = msg;
+    if(el) {
+        el.innerText = msg;
+        el.style.color = isSuccess ? "#4ade80" : "#f87171";
+    }
 }
 
 async function ensureUserDoc(user){
@@ -136,6 +143,22 @@ window.emailLogin = async function(){
         const result = await signInWithEmailAndPassword(auth, email, password);
         await ensureUserDoc(result.user);
     }catch(e){
+        showAuthError(translateAuthError(e));
+    }
+};
+
+// PASSWORT ZURÜCKSETZEN FUNKTION
+window.resetPassword = async function() {
+    showAuthError("");
+    const email = document.getElementById("emailInput").value.trim();
+    if(!email) {
+        showAuthError("Bitte gib zuerst deine E-Mail-Adresse in das Feld ein.");
+        return;
+    }
+    try {
+        await sendPasswordResetEmail(auth, email);
+        showAuthError("Zurücksetzungs-Link wurde per E-Mail gesendet!", true);
+    } catch(e) {
         showAuthError(translateAuthError(e));
     }
 };
@@ -280,7 +303,7 @@ window.activateCode = async function() {
                 return;
             }
             
-            // 🔒 BEHOBEN: Verhindert, dass fremde User denselben Code teilen
+            // 🔒 BEHOBEN: Verhindert, dass fremde User denselben aktivierten Code teilen
             if (codeData.usedBy !== auth.currentUser.uid) {
                 statusEl.innerText = "Dieser Code wurde bereits von einem anderen Nutzer aktiviert.";
                 return;
@@ -321,6 +344,8 @@ onAuthStateChanged(auth, (user)=>{
             <input id="emailInput" type="email" placeholder="E-Mail" autocomplete="username">
             <input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
             <button onclick="emailLogin()">Mit E-Mail anmelden</button>
+            <br>
+            <button class="link-btn" onclick="resetPassword()">Passwort vergessen?</button>
             <div id="authError" class="error"></div>
             </div>
             `;
