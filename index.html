@@ -182,10 +182,10 @@ async function handleUser(user){
 
     if (activeCheckInterval) clearInterval(activeCheckInterval);
 
-    // Wer darf Premium sehen? (Premium-Plan ODER Mitarbeiter ODER Techniker ODER Owner)
+    // Wer darf Premium sehen?
     const hatPremiumRechte = data.plan === "premium" || ["mitarbeiter", "techniker", "owner"].includes(data.role);
 
-    // ECHTZEIT-ABLAUFPRÜFUNG (nur für normale Premium-Zahler mit Code nötig)
+    // Echtzeit-Ablaufprüfung
     if (data.plan === "premium" && data.activeCode && !["mitarbeiter", "techniker", "owner"].includes(data.role)) {
         activeCheckInterval = setInterval(async () => {
             const currentSnap = await getDoc(ref);
@@ -224,7 +224,7 @@ async function handleUser(user){
     roleText.innerText = data.role.toUpperCase();
     logoutBtn.style.display = "inline-block";
 
-    // KORREKTUR: Aktivierungsfeld für alle echten Free-User ohne Sonderrolle einblenden!
+    // Einblendung des Aktivierungsfelds für Free-User ohne Sonderrolle
     const actCard = document.getElementById("activationCard");
     if (data.plan === "free" && !["mitarbeiter", "techniker", "owner"].includes(data.role)) {
         actCard.style.display = "block";
@@ -232,7 +232,7 @@ async function handleUser(user){
         actCard.style.display = "none";
     }
 
-    // STREAM CONFIG LADEN
+    // Stream-Konfiguration in Echtzeit laden
     const streamRef = doc(db, "config", "stream");
     onSnapshot(streamRef, async (streamSnap)=>{
         if(!streamSnap.exists()) return;
@@ -250,10 +250,9 @@ async function handleUser(user){
                 loadStream(premiumUrl);
             }catch(e){
                 console.error("Premium-Token-Fehler, weiche auf Free-Stream aus:", e);
-                loadStream(s.free); // Fallback auf Free falls die Token-API offline ist
+                loadStream(s.free);
             }
         }else{
-            // Wenn der User kein Premium hat, wird sofort der Free-Stream geladen
             loadStream(s.free);
         }
     });
@@ -280,6 +279,13 @@ window.activateCode = async function() {
                 statusEl.innerText = "Dieser Code ist abgelaufen.";
                 return;
             }
+            
+            // 🔒 BEHOBEN: Verhindert, dass fremde User denselben Code teilen
+            if (codeData.usedBy !== auth.currentUser.uid) {
+                statusEl.innerText = "Dieser Code wurde bereits von einem anderen Nutzer aktiviert.";
+                return;
+            }
+
             await upgradeUserToPremium(codeInput);
             return;
         }
