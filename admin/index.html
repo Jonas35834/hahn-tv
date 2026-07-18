@@ -16,6 +16,7 @@ input::placeholder {color: rgba(255, 255, 255, 0.5);}
 select option {background: #1e293b; color: white;}
 .divider{margin:20px 0;opacity:0.6;}
 .error{color:#f87171;margin-top:10px;}
+.success{color:#4ade80;margin-top:10px;}
 .userCard{background:rgba(255,255,255,0.05);padding:10px;border-radius:12px;margin-top:10px;}
 iframe,video{width:100%;border:none;border-radius:18px;background:black;}
 .streamPreview{margin-top:15px;text-align:left;}
@@ -23,8 +24,9 @@ iframe,video{width:100%;border:none;border-radius:18px;background:black;}
 #adminPanel{display:none;}
 footer{margin-top:40px;padding:20px;opacity:0.7;}
 a{color:#93c5fd;}
+.link-btn{background:none;border:none;color:#93c5fd;cursor:pointer;text-decoration:underline;padding:0;margin-top:10px;}
 
-/* MODAL FÜR MIGRATION */
+/* MODAL */
 #migrationModal {
     display: none;
     position: fixed;
@@ -58,6 +60,8 @@ a{color:#93c5fd;}
 <input id="emailInput" type="email" placeholder="E-Mail" autocomplete="username">
 <input id="passwordInput" type="password" placeholder="Passwort" autocomplete="current-password">
 <button onclick="emailLogin()">Mit E-Mail anmelden</button>
+<br>
+<button class="link-btn" onclick="resetPassword()">Passwort vergessen?</button>
 <div id="authError" class="error"></div>
 </div>
 
@@ -109,11 +113,12 @@ a{color:#93c5fd;}
 <b>➕ Neuen Nutzer anlegen</b>
 <input id="newUserEmail" type="email" placeholder="E-Mail" autocomplete="off">
 <input id="newUserPassword" type="password" placeholder="Passwort" autocomplete="new-password">
+
+<div id="ownerSelectsWrapper" style="display:none;">
 <select id="newUserPlan">
 <option value="free">Plan: Free</option>
 <option value="premium">Plan: Premium</option>
 </select>
-<div id="roleSelectWrapper" style="display:none;">
 <select id="newUserRole">
 <option value="user">Rolle: User</option>
 <option value="mitarbeiter">Rolle: Mitarbeiter</option>
@@ -122,6 +127,7 @@ a{color:#93c5fd;}
 <option value="owner">Rolle: Owner</option>
 </select>
 </div>
+
 <button onclick="adminCreateUser()">Nutzer anlegen</button>
 <div id="createUserStatus" class="error"></div>
 </div>
@@ -136,7 +142,6 @@ a{color:#93c5fd;}
 <script type="module">
 (async () => {
 try{
-// FIREBASE IMPORTS
 const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js");
 const { 
     getAuth, 
@@ -147,7 +152,8 @@ const {
     signInWithEmailAndPassword, 
     createUserWithEmailAndPassword,
     setPersistence,
-    inMemoryPersistence
+    inMemoryPersistence,
+    sendPasswordResetEmail
 } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
 
 const { 
@@ -160,7 +166,6 @@ const {
     getDocs 
 } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
 
-// FIREBASE CONFIG
 const firebaseConfig = {
     apiKey: "AIzaSyAAde58cIPBK-Ux4JL4OhUoEABKsWD6WiE",
     authDomain: "ohg-tv.firebaseapp.com",
@@ -182,9 +187,12 @@ let alreadyForcedLogout = false;
 let currentAdminRole = "user";
 let currentUserId = null;
 
-function showAuthError(msg){
+function showAuthError(msg, isSuccess=false){
     const el = document.getElementById("authError");
-    if(el) el.innerText = msg;
+    if(el) {
+        el.innerText = msg;
+        el.style.color = isSuccess ? "#4ade80" : "#f87171";
+    }
 }
 
 function translateAuthError(e){
@@ -228,18 +236,31 @@ window.emailLogin = async function(){
     }
 };
 
+// PASSWORT ZURÜCKSETZEN FUNKTION
+window.resetPassword = async function() {
+    showAuthError("");
+    const email = document.getElementById("emailInput").value.trim();
+    if(!email) {
+        showAuthError("Bitte gib zuerst deine E-Mail-Adresse in das Feld ein.");
+        return;
+    }
+    try {
+        await sendPasswordResetEmail(auth, email);
+        showAuthError("Zurücksetzungs-Link wurde per E-Mail gesendet!", true);
+    } catch(e) {
+        showAuthError(translateAuthError(e));
+    }
+};
+
 window.logout = function(){
     signOut(auth);
 };
 
-// Alt-Admin umstellen
 window.applyMigration = async function() {
     if (!currentUserId) return;
     const selectedRole = document.getElementById("migrationRoleSelect").value;
     try {
-        await updateDoc(doc(db, "users", currentUserId), {
-            role: selectedRole
-        });
+        await updateDoc(doc(db, "users", currentUserId), { role: selectedRole });
         document.getElementById("migrationModal").style.display = "none";
         location.reload();
     } catch (e) {
@@ -247,7 +268,6 @@ window.applyMigration = async function() {
     }
 };
 
-// BENUTZERLISTE LADEN
 async function loadAdmin(){
     const users = await getDocs(collection(db, "users"));
     const listEl = document.getElementById("userList");
@@ -273,7 +293,6 @@ async function loadAdmin(){
                     <option value="verkaeufer" ${d.role === 'verkaeufer' ? 'selected' : ''}>Verkäufer</option>
                     <option value="techniker" ${d.role === 'techniker' ? 'selected' : ''}>Techniker</option>
                     <option value="owner" ${d.role === 'owner' ? 'selected' : ''}>Owner</option>
-                    <option value="admin" ${d.role === 'admin' ? 'selected' : ''} disabled>Alt-Admin (Inaktiv)</option>
                 </select>
             `;
         } else {
@@ -303,7 +322,6 @@ window.setRole = async function(uid, role){
     }
 };
 
-// FEHLERFREIES ANLEGEN (MIT KORREKTEM MODULAREN SETPERSISTENCE)
 window.adminCreateUser = async function(){
     const statusEl = document.getElementById("createUserStatus");
     statusEl.innerText = "";
@@ -311,8 +329,9 @@ window.adminCreateUser = async function(){
 
     const email = document.getElementById("newUserEmail").value.trim();
     const password = document.getElementById("newUserPassword").value;
-    const plan = document.getElementById("newUserPlan").value;
     
+    // Wenn Owner: Nutze Dropdowns. Wenn Verkäufer: Setze Standardwerte (free & user)
+    const plan = (currentAdminRole === "owner") ? document.getElementById("newUserPlan").value : "free";
     const role = (currentAdminRole === "owner") ? document.getElementById("newUserRole").value : "user";
 
     if(!email || !password){
@@ -321,13 +340,8 @@ window.adminCreateUser = async function(){
     }
 
     try{
-        // Verhindert das automatische Einloggen des neuen Nutzers im Admin-Browser
         await setPersistence(secondaryAuth, inMemoryPersistence);
-        
-        // Registriert den Account
         const result = await createUserWithEmailAndPassword(secondaryAuth, email, password);
-
-        // Erstellt die Firestore-Referenz fehlerfrei
         const userDocRef = doc(db, "users", result.user.uid);
         
         await setDoc(userDocRef, {
@@ -346,7 +360,6 @@ window.adminCreateUser = async function(){
         loadAdmin();
     }catch(e){
         statusEl.innerText = translateAuthError(e);
-        console.error("Fehler beim Erstellen des Nutzers:", e);
     }
 };
 
@@ -366,21 +379,14 @@ window.updateStream = async function(){
 
 function renderPreview(containerId, url){
     const container = document.getElementById(containerId);
-    if(!url){
-        container.innerHTML = `<p style="opacity:0.6;">Keine URL hinterlegt.</p>`;
-        return;
-    }
+    if(!url){ container.innerHTML = `<p style="opacity:0.6;">Keine URL hinterlegt.</p>`; return; }
     if(url.includes(".m3u8")){
         const videoId = containerId + "Video";
         container.innerHTML = `<video id="${videoId}" controls playsinline></video>`;
         const video = document.getElementById(videoId);
         if(Hls.isSupported()){
-            const hls = new Hls();
-            hls.loadSource(url);
-            hls.attachMedia(video);
-        }else{
-            video.src = url;
-        }
+            const hls = new Hls(); hls.loadSource(url); hls.attachMedia(video);
+        }else{ video.src = url; }
     }else{
         container.innerHTML = `<iframe src="${url}" allowfullscreen style="height:300px;"></iframe>`;
     }
@@ -428,12 +434,9 @@ window.generateActivationCode = async function() {
         });
         statusEl.style.color = "#4ade80";
         statusEl.innerText = `Code erstellt: ${newCode} (${duration} Min. aktiv)`;
-    } catch (e) {
-        statusEl.innerText = "Fehler: " + e.message;
-    }
+    } catch (e) { statusEl.innerText = "Fehler: " + e.message; }
 };
 
-// AUTH WATCHER
 onAuthStateChanged(auth, async (user)=>{
     if(user && !alreadyForcedLogout){
         alreadyForcedLogout = true;
@@ -452,11 +455,7 @@ onAuthStateChanged(auth, async (user)=>{
     const snap = await getDoc(ref);
     const data = snap.exists() ? snap.data() : null;
 
-    if(!data){
-        showAuthError("Kein Benutzerprofil gefunden.");
-        await signOut(auth);
-        return;
-    }
+    if(!data){ showAuthError("Kein Benutzerprofil gefunden."); await signOut(auth); return; }
 
     currentUserId = user.uid;
 
@@ -482,13 +481,13 @@ onAuthStateChanged(auth, async (user)=>{
     document.getElementById("streamSection").style.display = "none";
     document.getElementById("codeSection").style.display = "none";
     document.getElementById("userSection").style.display = "none";
-    document.getElementById("roleSelectWrapper").style.display = "none";
+    document.getElementById("ownerSelectsWrapper").style.display = "none";
 
     if (currentAdminRole === "owner") {
         document.getElementById("streamSection").style.display = "block";
         document.getElementById("codeSection").style.display = "block";
         document.getElementById("userSection").style.display = "block";
-        document.getElementById("roleSelectWrapper").style.display = "block";
+        document.getElementById("ownerSelectsWrapper").style.display = "block"; // Einblenden für Owner
         loadAdmin();
         loadInputs();
     } 
@@ -502,9 +501,7 @@ onAuthStateChanged(auth, async (user)=>{
         loadAdmin();
     }
 });
-}catch(e){
-    console.error("OHG-TV Admin Ladefehler:", e);
-}
+}catch(e){ console.error("OHG-TV Admin Ladefehler:", e); }
 })();
 </script>
 </body>
